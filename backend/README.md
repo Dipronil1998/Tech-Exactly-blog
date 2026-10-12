@@ -56,6 +56,16 @@ A secure, production-ready User Authentication module built with **Express.js**,
    - **Restore**: Easily restored via `PATCH /api/posts/:id/restore`.
    - **Zod Validation**: Request payloads validated for field presence, lengths, and valid types.
 
+10. **Comment Management & RBAC**
+   - **Fields**: `content`, `post` (ref: `Post`), `author` (ref: `User`), timestamps (`createdAt`, `updatedAt`).
+   - **Mongoose References**: Post-comment associations managed via Mongoose references (`post: ObjectId`) and virtual populate on `Post` (`comments`).
+   - **Role-Based Access Control**:
+     - Authenticated users can comment on any active post (by post `ObjectId` or `slug`).
+     - Regular users can edit and delete **only their own comments**.
+     - Admins can manage (edit and delete) **all comments**.
+   - **Zod Validation**: Content validated (1–1000 characters, trimmed).
+
+
 ---
 
 ## API Endpoints
@@ -90,6 +100,15 @@ A secure, production-ready User Authentication module built with **Express.js**,
 | `PUT` | `/api/posts/:id` | **Author or Admin** | Edit post (Regular users: own only; Admins: any post; updates slug) |
 | `DELETE` | `/api/posts/:id` | **Author or Admin** | Soft delete post (sets `isDeleted: true` and `deletedAt`) |
 | `PATCH` | `/api/posts/:id/restore` | **Author or Admin** | Restore a soft-deleted post |
+
+### Comments Management (CRUD & RBAC)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `POST` | `/api/posts/:postId/comments` | **Authenticated User** | Create comment on a post (accepts post ID or slug) |
+| `GET` | `/api/posts/:postId/comments` | Public | List all comments for a post (with author details) |
+| `GET` | `/api/comments/:id` | Public | Get single comment by ID |
+| `PUT` | `/api/comments/:id` | **Author or Admin** | Edit comment (Regular users: own only; Admins: any comment) |
+| `DELETE` | `/api/comments/:id` | **Author or Admin** | Delete comment (Regular users: own only; Admins: any comment) |
 
 ---
 

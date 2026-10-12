@@ -9,7 +9,12 @@ const {
 } = require('../controllers/postController');
 const { protect, checkPostOwnershipOrAdmin } = require('../middleware/authMiddleware');
 
+const commentRoutes = require('./commentRoutes');
+
 const router = express.Router();
+
+// Nested comment routes: /api/posts/:postId/comments
+router.use('/:postId/comments', commentRoutes);
 
 // Public routes
 router.get('/', getAllPosts);

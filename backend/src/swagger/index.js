@@ -4,6 +4,7 @@ const securitySchemes = require('./components/security');
 const authPaths = require('./paths/auth.paths');
 const userPaths = require('./paths/user.paths');
 const postPaths = require('./paths/post.paths');
+const commentPaths = require('./paths/comment.paths');
 const healthPaths = require('./paths/health.paths');
 
 const swaggerDefinition = {
@@ -15,8 +16,8 @@ const swaggerDefinition = {
 Interactive REST API documentation for the Blog backend authentication and Role-Based Access Control (RBAC) system.
 
 ### Architecture & RBAC Rules
-- **Admin**: Can manage all users (list, promote, delete) and manage all posts (edit, delete any post).
-- **Regular User**: Can create posts and edit/delete ONLY their own posts.
+- **Admin**: Can manage all users (list, promote, delete), manage all posts, and manage all comments.
+- **Regular User**: Can create posts and comments, and edit/delete ONLY their own posts and comments.
 - **Enforcement**: RBAC is enforced strictly at the API and middleware level.
     `,
     contact: {
@@ -39,6 +40,10 @@ Interactive REST API documentation for the Blog backend authentication and Role-
       description: 'Blog post operations (Authors manage own posts, Admins manage all posts)',
     },
     {
+      name: 'Comments',
+      description: 'Comment operations (Users manage own comments, Admins manage all comments)',
+    },
+    {
       name: 'Users (Admin)',
       description: 'User management and role assignment (Admin only)',
     },
@@ -55,6 +60,7 @@ Interactive REST API documentation for the Blog backend authentication and Role-
     ...authPaths,
     ...userPaths,
     ...postPaths,
+    ...commentPaths,
     ...healthPaths,
   },
 };

@@ -387,6 +387,81 @@ const schemas = {
       },
     },
   },
+  Comment: {
+    type: 'object',
+    properties: {
+      _id: {
+        type: 'string',
+        example: '6618451f22144d32098d7999',
+      },
+      content: {
+        type: 'string',
+        example: 'Great article! Really helped clarify the concepts.',
+      },
+      author: {
+        $ref: '#/components/schemas/User',
+      },
+      post: {
+        type: 'string',
+        example: '6618451f22144d32098d785a',
+      },
+      createdAt: {
+        type: 'string',
+        format: 'date-time',
+        example: '2026-10-12T18:30:00.000Z',
+      },
+      updatedAt: {
+        type: 'string',
+        format: 'date-time',
+        example: '2026-10-12T18:30:00.000Z',
+      },
+    },
+  },
+  CreateCommentRequest: {
+    type: 'object',
+    required: ['content'],
+    properties: {
+      content: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 1000,
+        example: 'Great post, thanks for sharing!',
+      },
+    },
+  },
+  UpdateCommentRequest: {
+    type: 'object',
+    required: ['content'],
+    properties: {
+      content: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 1000,
+        example: 'Updated feedback on this article.',
+      },
+    },
+  },
+  CommentResponse: {
+    type: 'object',
+    properties: {
+      success: {
+        type: 'boolean',
+        example: true,
+      },
+      message: {
+        type: 'string',
+        example: 'Comment created successfully.',
+      },
+      data: {
+        type: 'object',
+        properties: {
+          comment: {
+            $ref: '#/components/schemas/Comment',
+          },
+        },
+      },
+    },
+  },
 };
 
 module.exports = schemas;

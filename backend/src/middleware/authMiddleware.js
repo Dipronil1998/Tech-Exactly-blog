@@ -108,9 +108,41 @@ const checkUserOwnershipOrAdmin = (req, res, next) => {
   next();
 };
 
+// Comment ownership verification middleware:
+// Allows author of the comment OR users with admin role to manage the comment
+const checkCommentOwnershipOrAdmin = async (req, res, next) => {
+  const Comment = require('../models/Comment');
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found.',
+      });
+    }
+
+    const isAuthor = comment.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only manage your own comments.',
+      });
+    }
+
+    req.comment = comment;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   protect,
   authorize,
   checkPostOwnershipOrAdmin,
   checkUserOwnershipOrAdmin,
+  checkCommentOwnershipOrAdmin,
 };

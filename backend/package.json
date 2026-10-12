@@ -8,7 +8,8 @@
     "test:auth": "node tests/auth.test.js",
     "test:rbac": "node tests/rbac.test.js",
     "test:post": "node tests/post.test.js",
-    "test": "node tests/auth.test.js && node tests/rbac.test.js && node tests/post.test.js"
+    "test:comment": "node tests/comment.test.js",
+    "test": "node tests/auth.test.js && node tests/rbac.test.js && node tests/post.test.js && node tests/comment.test.js"
   },
   "keywords": [],
   "author": "",

@@ -47,8 +47,17 @@ const postSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual relationship to populate comments on post
+postSchema.virtual('comments', {
+  ref: 'Comment',
+  localField: '_id',
+  foreignField: 'post',
+});
 
 // Auto-generate URL-friendly unique slug before saving if title is modified
 postSchema.pre('save', async function () {
