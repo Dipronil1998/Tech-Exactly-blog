@@ -1,5 +1,4 @@
-const User = require('../models/User');
-const Post = require('../models/Post');
+const userService = require('../services/userService');
 const { updateUserSchema, updateRoleSchema } = require('../validations/userValidation');
 
 // @desc    Get all users (with search, role filter, pagination)
@@ -7,37 +6,12 @@ const { updateUserSchema, updateRoleSchema } = require('../validations/userValid
 // @access  Private (Admin only)
 const getAllUsers = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
-
-    const query = {};
-
-    if (req.query.role) {
-      query.role = req.query.role;
-    }
-
-    if (req.query.search) {
-      const searchRegex = { $regex: req.query.search, $options: 'i' };
-      query.$or = [{ username: searchRegex }, { email: searchRegex }, { name: searchRegex }];
-    }
-
-    const [users, totalUsers] = await Promise.all([
-      User.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      User.countDocuments(query),
-    ]);
+    const { page, limit, role, search } = req.query;
+    const result = await userService.getAllUsers({ page, limit, role, search });
 
     return res.status(200).json({
       success: true,
-      data: {
-        users,
-        pagination: {
-          total: totalUsers,
-          page,
-          pages: Math.ceil(totalUsers / limit),
-          limit,
-        },
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -49,14 +23,7 @@ const getAllUsers = async (req, res, next) => {
 // @access  Private (Admin or Self)
 const getUserById = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
+    const user = await userService.getUserById(req.params.id);
 
     return res.status(200).json({
       success: true,
@@ -87,42 +54,7 @@ const updateUser = async (req, res, next) => {
       });
     }
 
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
-
-    const { name, username, role } = validationResult.data;
-
-    if (name !== undefined) user.name = name;
-
-    // Check unique username if changing
-    if (username && username !== user.username) {
-      const existing = await User.findOne({ username });
-      if (existing) {
-        return res.status(409).json({
-          success: false,
-          message: 'Username is already in use.',
-        });
-      }
-      user.username = username;
-    }
-
-    // Only admins can change roles
-    if (role !== undefined) {
-      if (req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Only administrators can change roles.',
-        });
-      }
-      user.role = role;
-    }
-
-    await user.save();
+    const user = await userService.updateUser(req.params.id, validationResult.data, req.user);
 
     return res.status(200).json({
       success: true,
@@ -154,24 +86,11 @@ const updateUserRole = async (req, res, next) => {
       });
     }
 
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
-
-    // Prevent admin from demoting themselves
-    if (req.user._id.toString() === user._id.toString() && validationResult.data.role !== 'admin') {
-      return res.status(400).json({
-        success: false,
-        message: 'You cannot remove your own admin privileges.',
-      });
-    }
-
-    user.role = validationResult.data.role;
-    await user.save();
+    const user = await userService.updateUserRole(
+      req.params.id,
+      validationResult.data.role,
+      req.user._id
+    );
 
     return res.status(200).json({
       success: true,
@@ -190,27 +109,7 @@ const updateUserRole = async (req, res, next) => {
 // @access  Private (Admin only)
 const deleteUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.',
-      });
-    }
-
-    // Prevent admin from deleting themselves
-    if (req.user._id.toString() === user._id.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: 'You cannot delete your own admin account.',
-      });
-    }
-
-    // Delete user and cascade delete user's posts
-    await Promise.all([
-      user.deleteOne(),
-      Post.deleteMany({ author: user._id }),
-    ]);
+    await userService.deleteUser(req.params.id, req.user._id);
 
     return res.status(200).json({
       success: true,

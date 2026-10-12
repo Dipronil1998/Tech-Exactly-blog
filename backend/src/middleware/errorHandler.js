@@ -8,7 +8,7 @@ const notFoundHandler = (req, res, next) => {
 
 // Global Error Handler
 const errorHandler = (err, req, res, next) => {
-  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  let statusCode = err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
   let message = err.message || 'Internal Server Error';
 
   // Handle Mongoose Bad ObjectId / CastError
@@ -52,6 +52,7 @@ const errorHandler = (err, req, res, next) => {
   res.status(statusCode).json({
     success: false,
     message,
+    ...(err.errors && { errors: err.errors }),
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 };

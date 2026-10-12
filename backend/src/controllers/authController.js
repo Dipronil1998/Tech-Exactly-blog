@@ -1,8 +1,5 @@
-const User = require('../models/User');
+const authService = require('../services/authService');
 const {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
   setRefreshTokenCookie,
   clearRefreshTokenCookie,
   REFRESH_TOKEN_COOKIE_NAME,
@@ -14,7 +11,6 @@ const { registerSchema, loginSchema } = require('../validations/authValidation')
 // @access  Public
 const register = async (req, res, next) => {
   try {
-    // Validate request body using Zod schema
     const validationResult = registerSchema.safeParse(req.body);
     if (!validationResult.success) {
       const issues = validationResult.error.issues || validationResult.error.errors || [];
@@ -29,62 +25,15 @@ const register = async (req, res, next) => {
       });
     }
 
-    const { username, email, password, name, role, adminSecret } = validationResult.data;
-
-    // Check if role is admin and verify admin secret key
-    let assignedRole = 'user';
-    if (role === 'admin') {
-      const configuredSecret = process.env.ADMIN_SECRET_KEY;
-      if (!configuredSecret || adminSecret !== configuredSecret) {
-        return res.status(403).json({
-          success: false,
-          message: 'Invalid or missing admin registration secret key.',
-        });
-      }
-      assignedRole = 'admin';
-    }
-
-    // Check if email or username already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    });
-
-    if (existingUser) {
-      const field = existingUser.email === email ? 'Email' : 'Username';
-      return res.status(409).json({
-        success: false,
-        message: `${field} is already in use.`,
-      });
-    }
-
-    // Create new user (password is hashed in pre-save hook)
-    const user = new User({
-      username,
-      email,
-      password,
-      name,
-      role: assignedRole,
-    });
-
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Save refresh token to user document
-    user.refreshTokens = [{ token: refreshToken, createdAt: new Date() }];
-    await user.save();
+    const result = await authService.registerUser(validationResult.data);
 
     // Set HTTP-only cookie for refresh token
-    setRefreshTokenCookie(res, refreshToken);
+    setRefreshTokenCookie(res, result.refreshToken);
 
     return res.status(201).json({
       success: true,
       message: 'User registered successfully.',
-      data: {
-        user,
-        accessToken,
-        refreshToken,
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -96,7 +45,6 @@ const register = async (req, res, next) => {
 // @access  Public
 const login = async (req, res, next) => {
   try {
-    // Validate request body using Zod schema
     const validationResult = loginSchema.safeParse(req.body);
     if (!validationResult.success) {
       const issues = validationResult.error.issues || validationResult.error.errors || [];
@@ -112,54 +60,18 @@ const login = async (req, res, next) => {
     }
 
     const { email, username, password } = validationResult.data;
-    const identifier = (email || username || '').trim();
-
-    // Find user by email or username, explicitly selecting the password
-    const user = await User.findOne({
-      $or: [{ email: identifier.toLowerCase() }, { username: identifier }],
-    }).select('+password');
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials.',
-      });
-    }
-
-    // Verify password with bcrypt
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials.',
-      });
-    }
-
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Maintain max 5 active refresh tokens (device sessions)
-    if (!Array.isArray(user.refreshTokens)) {
-      user.refreshTokens = [];
-    }
-    user.refreshTokens.push({ token: refreshToken, createdAt: new Date() });
-    if (user.refreshTokens.length > 5) {
-      user.refreshTokens = user.refreshTokens.slice(-5);
-    }
-    await user.save();
+    const result = await authService.loginUser({
+      identifier: email || username,
+      password,
+    });
 
     // Set HTTP-only cookie
-    setRefreshTokenCookie(res, refreshToken);
+    setRefreshTokenCookie(res, result.refreshToken);
 
     return res.status(200).json({
       success: true,
       message: 'Login successful.',
-      data: {
-        user,
-        accessToken,
-        refreshToken,
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -171,7 +83,6 @@ const login = async (req, res, next) => {
 // @access  Public
 const refreshToken = async (req, res, next) => {
   try {
-    // Read refresh token from cookie, request body, or header
     const token =
       req.cookies?.[REFRESH_TOKEN_COOKIE_NAME] ||
       req.body?.refreshToken ||
@@ -184,56 +95,20 @@ const refreshToken = async (req, res, next) => {
       });
     }
 
-    let decoded;
+    let result;
     try {
-      decoded = verifyRefreshToken(token);
+      result = await authService.refreshAccessToken(token);
     } catch (err) {
       clearRefreshTokenCookie(res);
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid or expired refresh token. Please log in again.',
-      });
+      return next(err);
     }
 
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      clearRefreshTokenCookie(res);
-      return res.status(401).json({
-        success: false,
-        message: 'User no longer exists.',
-      });
-    }
-
-    // Verify token exists in user's saved tokens list
-    const tokenIndex = user.refreshTokens.findIndex((t) => t.token === token);
-    if (tokenIndex === -1) {
-      clearRefreshTokenCookie(res);
-      return res.status(401).json({
-        success: false,
-        message: 'Refresh token has been revoked or already used.',
-      });
-    }
-
-    // Refresh Token Rotation: Remove the used token and issue a fresh pair
-    user.refreshTokens.splice(tokenIndex, 1);
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
-
-    user.refreshTokens.push({ token: newRefreshToken, createdAt: new Date() });
-    if (user.refreshTokens.length > 5) {
-      user.refreshTokens = user.refreshTokens.slice(-5);
-    }
-    await user.save();
-
-    setRefreshTokenCookie(res, newRefreshToken);
+    setRefreshTokenCookie(res, result.refreshToken);
 
     return res.status(200).json({
       success: true,
       message: 'Access token refreshed successfully.',
-      data: {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -250,15 +125,9 @@ const logout = async (req, res, next) => {
       req.body?.refreshToken ||
       req.headers['x-refresh-token'];
 
-    if (token) {
-      // Invalidate the refresh token in the database
-      await User.updateOne(
-        { 'refreshTokens.token': token },
-        { $pull: { refreshTokens: { token } } }
-      );
-    }
+    await authService.logoutUser(token);
 
-    // Clear the HTTP-only cookie
+    // Clear HTTP-only cookie
     clearRefreshTokenCookie(res);
 
     return res.status(200).json({

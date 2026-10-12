@@ -1,5 +1,4 @@
-const mongoose = require('mongoose');
-const Post = require('../models/Post');
+const postService = require('../services/postService');
 const { createPostSchema, updatePostSchema } = require('../validations/postValidation');
 
 // @desc    Create a new post with auto-generated slug
@@ -21,17 +20,12 @@ const createPost = async (req, res, next) => {
     }
 
     const { title, content, status } = validationResult.data;
-
-    const post = new Post({
+    const post = await postService.createPost({
       title,
       content,
       status,
-      author: req.user._id,
-      isDeleted: false,
+      authorId: req.user._id,
     });
-
-    await post.save();
-    await post.populate('author', 'username email name role');
 
     return res.status(201).json({
       success: true,
@@ -50,56 +44,21 @@ const createPost = async (req, res, next) => {
 // @access  Public
 const getAllPosts = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
-
-    const query = {};
-
-    // Soft delete filter: exclude deleted posts by default
+    const { page, limit, author, status, search } = req.query;
     const includeDeleted = req.query.includeDeleted === 'true';
-    if (!includeDeleted) {
-      query.isDeleted = false;
-    }
 
-    // Filter by author
-    if (req.query.author) {
-      query.author = req.query.author;
-    }
-
-    // Filter by status
-    if (req.query.status) {
-      query.status = req.query.status;
-    }
-
-    // Keyword search in title or content
-    if (req.query.search) {
-      query.$or = [
-        { title: { $regex: req.query.search, $options: 'i' } },
-        { content: { $regex: req.query.search, $options: 'i' } },
-      ];
-    }
-
-    const [posts, totalPosts] = await Promise.all([
-      Post.find(query)
-        .populate('author', 'username email name role')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      Post.countDocuments(query),
-    ]);
+    const result = await postService.getAllPosts({
+      page,
+      limit,
+      includeDeleted,
+      author,
+      status,
+      search,
+    });
 
     return res.status(200).json({
       success: true,
-      data: {
-        posts,
-        pagination: {
-          total: totalPosts,
-          page,
-          pages: Math.ceil(totalPosts / limit),
-          limit,
-        },
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -111,32 +70,7 @@ const getAllPosts = async (req, res, next) => {
 // @access  Public
 const getPostByIdOrSlug = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    // Check if parameter is a valid MongoDB ObjectId or a slug
-    const isObjectId = mongoose.Types.ObjectId.isValid(id);
-    const query = isObjectId ? { _id: id } : { slug: id.toLowerCase() };
-
-    const post = await Post.findOne(query).populate('author', 'username email name role');
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found.',
-      });
-    }
-
-    // If soft-deleted, prevent public viewing unless admin or owner
-    if (post.isDeleted) {
-      const isOwner = req.user && post.author._id.toString() === req.user._id.toString();
-      const isAdmin = req.user && req.user.role === 'admin';
-      if (!isOwner && !isAdmin) {
-        return res.status(404).json({
-          success: false,
-          message: 'Post not found.',
-        });
-      }
-    }
+    const post = await postService.getPostByIdOrSlug(req.params.id, req.user);
 
     return res.status(200).json({
       success: true,
@@ -167,24 +101,8 @@ const updatePost = async (req, res, next) => {
       });
     }
 
-    // post is already retrieved and RBAC verified by checkPostOwnershipOrAdmin middleware
-    const post = req.post;
-
-    if (post.isDeleted) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot update a soft-deleted post. Please restore it first.',
-      });
-    }
-
-    const { title, content, status } = validationResult.data;
-
-    if (title !== undefined) post.title = title;
-    if (content !== undefined) post.content = content;
-    if (status !== undefined) post.status = status;
-
-    await post.save();
-    await post.populate('author', 'username email name role');
+    // req.post is verified by checkPostOwnershipOrAdmin middleware
+    const post = await postService.updatePost(req.post, validationResult.data);
 
     return res.status(200).json({
       success: true,
@@ -198,38 +116,28 @@ const updatePost = async (req, res, next) => {
   }
 };
 
-// @desc    Soft delete a post (sets isDeleted: true and deletedAt timestamp)
+// @desc    Delete a post (soft delete by default, hard delete for admins)
 // @route   DELETE /api/posts/:id
 // @access  Private (Author or Admin)
 const deletePost = async (req, res, next) => {
   try {
-    // post is already retrieved and RBAC verified by checkPostOwnershipOrAdmin middleware
-    const post = req.post;
+    const hardDelete = req.query.hardDelete === 'true';
+    const isAdmin = req.user.role === 'admin';
 
-    // Optional hard delete if requested by admin
-    if (req.query.hardDelete === 'true' && req.user.role === 'admin') {
-      await post.deleteOne();
+    const result = await postService.deletePost(req.post, { hardDelete, isAdmin });
+
+    if (result.hardDeleted) {
       return res.status(200).json({
         success: true,
         message: 'Post permanently deleted.',
       });
     }
 
-    if (post.isDeleted) {
-      return res.status(400).json({
-        success: false,
-        message: 'Post is already soft-deleted.',
-      });
-    }
-
-    // Soft delete
-    await post.softDelete();
-
     return res.status(200).json({
       success: true,
       message: 'Post soft deleted successfully.',
       data: {
-        post,
+        post: result,
       },
     });
   } catch (error) {
@@ -242,17 +150,7 @@ const deletePost = async (req, res, next) => {
 // @access  Private (Author or Admin)
 const restorePost = async (req, res, next) => {
   try {
-    const post = req.post;
-
-    if (!post.isDeleted) {
-      return res.status(400).json({
-        success: false,
-        message: 'Post is not deleted.',
-      });
-    }
-
-    await post.restore();
-    await post.populate('author', 'username email name role');
+    const post = await postService.restorePost(req.post);
 
     return res.status(200).json({
       success: true,

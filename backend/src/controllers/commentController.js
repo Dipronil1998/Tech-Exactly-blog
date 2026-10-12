@@ -1,6 +1,4 @@
-const mongoose = require('mongoose');
-const Comment = require('../models/Comment');
-const Post = require('../models/Post');
+const commentService = require('../services/commentService');
 const { createCommentSchema, updateCommentSchema } = require('../validations/commentValidation');
 
 // @desc    Add a comment to a blog post
@@ -8,22 +6,6 @@ const { createCommentSchema, updateCommentSchema } = require('../validations/com
 // @access  Private (Authenticated users)
 const createComment = async (req, res, next) => {
   try {
-    const { postId } = req.params;
-
-    // Validate if postId is a valid ObjectId or query post by slug/id
-    const isObjectId = mongoose.Types.ObjectId.isValid(postId);
-    const postQuery = isObjectId ? { _id: postId } : { slug: postId.toLowerCase() };
-    postQuery.isDeleted = false;
-
-    const post = await Post.findOne(postQuery);
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found or has been deleted.',
-      });
-    }
-
-    // Validate comment payload with Zod
     const validationResult = createCommentSchema.safeParse(req.body);
     if (!validationResult.success) {
       const issues = validationResult.error.issues || validationResult.error.errors || [];
@@ -37,16 +19,11 @@ const createComment = async (req, res, next) => {
       });
     }
 
-    const { content } = validationResult.data;
-
-    const comment = new Comment({
-      content,
-      post: post._id,
-      author: req.user._id,
+    const comment = await commentService.createComment({
+      postIdOrSlug: req.params.postId,
+      content: validationResult.data.content,
+      authorId: req.user._id,
     });
-
-    await comment.save();
-    await comment.populate('author', 'username email name role');
 
     return res.status(201).json({
       success: true,
@@ -65,44 +42,16 @@ const createComment = async (req, res, next) => {
 // @access  Public
 const getPostComments = async (req, res, next) => {
   try {
-    const { postId } = req.params;
-
-    const isObjectId = mongoose.Types.ObjectId.isValid(postId);
-    const postQuery = isObjectId ? { _id: postId } : { slug: postId.toLowerCase() };
-    postQuery.isDeleted = false;
-
-    const post = await Post.findOne(postQuery);
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found.',
-      });
-    }
-
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
-    const skip = (page - 1) * limit;
-
-    const [comments, totalComments] = await Promise.all([
-      Comment.find({ post: post._id })
-        .populate('author', 'username email name role')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      Comment.countDocuments({ post: post._id }),
-    ]);
+    const { page, limit } = req.query;
+    const result = await commentService.getCommentsByPost({
+      postIdOrSlug: req.params.postId,
+      page,
+      limit,
+    });
 
     return res.status(200).json({
       success: true,
-      data: {
-        comments,
-        pagination: {
-          total: totalComments,
-          page,
-          pages: Math.ceil(totalComments / limit),
-          limit,
-        },
-      },
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -114,16 +63,7 @@ const getPostComments = async (req, res, next) => {
 // @access  Public
 const getCommentById = async (req, res, next) => {
   try {
-    const comment = await Comment.findById(req.params.id)
-      .populate('author', 'username email name role')
-      .populate('post', 'title slug');
-
-    if (!comment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Comment not found.',
-      });
-    }
+    const comment = await commentService.getCommentById(req.params.id);
 
     return res.status(200).json({
       success: true,
@@ -155,11 +95,10 @@ const updateComment = async (req, res, next) => {
     }
 
     // req.comment is already verified by checkCommentOwnershipOrAdmin middleware
-    const comment = req.comment;
-    comment.content = validationResult.data.content;
-
-    await comment.save();
-    await comment.populate('author', 'username email name role');
+    const comment = await commentService.updateComment(
+      req.comment,
+      validationResult.data.content
+    );
 
     return res.status(200).json({
       success: true,
@@ -179,9 +118,7 @@ const updateComment = async (req, res, next) => {
 const deleteComment = async (req, res, next) => {
   try {
     // req.comment is already verified by checkCommentOwnershipOrAdmin middleware
-    const comment = req.comment;
-
-    await comment.deleteOne();
+    await commentService.deleteComment(req.comment);
 
     return res.status(200).json({
       success: true,

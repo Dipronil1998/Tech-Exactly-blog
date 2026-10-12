@@ -65,6 +65,12 @@ A secure, production-ready User Authentication module built with **Express.js**,
      - Admins can manage (edit and delete) **all comments**.
    - **Zod Validation**: Content validated (1–1000 characters, trimmed).
 
+11. **Layered Architecture (Service Layer Separation)**
+   - Business logic, database queries, and transaction rules are encapsulated in a dedicated service layer (`authService`, `userService`, `postService`, `commentService`).
+   - Controllers are kept lean, handling only HTTP parsing, request validation, cookie management, and status formatting.
+   - Clean domain error handling via `AppError` with operational error propagation to centralized error middleware.
+
+
 
 ---
 
