@@ -54,14 +54,63 @@ const authorize = (...roles) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to perform this action.',
+        message: 'Access denied. You do not have permission to perform this action.',
       });
     }
     next();
   };
 };
 
+// Post ownership verification middleware:
+// Allows author of the post OR users with admin role to manage the post
+const checkPostOwnershipOrAdmin = async (req, res, next) => {
+  const Post = require('../models/Post');
+  try {
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found.',
+      });
+    }
+
+    const isAuthor = post.author.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only manage your own posts.',
+      });
+    }
+
+    // Attach verified post to request object
+    req.post = post;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// User ownership verification middleware:
+// Allows self OR admin to manage the user profile
+const checkUserOwnershipOrAdmin = (req, res, next) => {
+  const isSelf = req.params.id === req.user._id.toString();
+  const isAdmin = req.user.role === 'admin';
+
+  if (!isSelf && !isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. You can only view or manage your own profile.',
+    });
+  }
+  next();
+};
+
 module.exports = {
   protect,
   authorize,
+  checkPostOwnershipOrAdmin,
+  checkUserOwnershipOrAdmin,
 };

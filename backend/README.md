@@ -35,25 +35,53 @@ A secure, production-ready User Authentication module built with **Express.js**,
    - All sensitive secrets and configurations are managed via `.env`.
    - Includes `.env.example` template.
 
-7. **Interactive Swagger / OpenAPI Documentation**
-   - Complete OpenAPI 3.0 specification served at `/api/docs` and `/api/docs.json`.
+7. **Role-Based Access Control (RBAC)**
+   - Two distinct roles: **Admin** and **Regular User (`user`)**.
+   - **Admins can**:
+     - Manage all users (list, view, promote/demote roles, delete accounts).
+     - Manage all blog posts (edit or delete any post).
+   - **Regular users can**:
+     - Create posts.
+     - Edit and delete **only their own posts**.
+   - Enforced strictly at the API and middleware level via `authorize('admin')` and `checkPostOwnershipOrAdmin`.
+
+8. **Interactive Swagger / OpenAPI Documentation**
+   - Modular OpenAPI 3.0 specification served at `/api/docs` and `/api/docs.json`.
    - Built-in Bearer JWT Authorization and cookie auth testing.
-   - Helmet configured to permit Swagger UI inline assets.
 
 ---
 
 ## API Endpoints
 
+### Authentication & Documentation
 | Method | Endpoint | Access | Description | Rate Limited |
 |---|---|---|---|---|
 | `GET` | `/api/docs` | Public | Interactive Swagger UI Documentation | No |
 | `GET` | `/api/docs.json` | Public | Raw OpenAPI 3.0 JSON specification | No |
-| `POST` | `/api/auth/register` | Public | Register new user | Yes (15 req / 15 min) |
+| `POST` | `/api/auth/register` | Public | Register new user (accepts optional `role` + `adminSecret`) | Yes (15 req / 15 min) |
 | `POST` | `/api/auth/login` | Public | Log in with email/username & password | Yes (15 req / 15 min) |
 | `POST` | `/api/auth/refresh` | Public | Obtain new access token via refresh token | Yes (15 req / 15 min) |
 | `POST` | `/api/auth/logout` | Public | Revoke refresh token & clear cookie | No |
 | `GET` | `/api/auth/me` | Protected | Get current authenticated user profile | General API limiter |
 | `GET` | `/api/health` | Public | Service health check | General API limiter |
+
+### User Management (Admin RBAC)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `GET` | `/api/users` | **Admin Only** | List all users with pagination and search |
+| `GET` | `/api/users/:id` | **Admin or Self** | Get user profile by ID |
+| `PUT` | `/api/users/:id` | **Admin or Self** | Update profile (role changes restricted to Admin) |
+| `PUT` | `/api/users/:id/role` | **Admin Only** | Promote or demote user role (`user` / `admin`) |
+| `DELETE` | `/api/users/:id` | **Admin Only** | Delete a user account and cascade delete their posts |
+
+### Posts Management (RBAC)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `GET` | `/api/posts` | Public | List published posts with pagination, search, author filter |
+| `GET` | `/api/posts/:id` | Public | View single post details |
+| `POST` | `/api/posts` | **Authenticated User** | Create new blog post (author set automatically) |
+| `PUT` | `/api/posts/:id` | **Author or Admin** | Edit post (Regular users: own only; Admins: any post) |
+| `DELETE` | `/api/posts/:id` | **Author or Admin** | Delete post (Regular users: own only; Admins: any post) |
 
 ---
 

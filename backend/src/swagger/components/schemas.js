@@ -240,6 +240,152 @@ const schemas = {
       },
     },
   },
+  Post: {
+    type: 'object',
+    properties: {
+      _id: {
+        type: 'string',
+        example: '6618451f22144d32098d785a',
+      },
+      title: {
+        type: 'string',
+        example: 'Mastering Node.js and RBAC',
+      },
+      content: {
+        type: 'string',
+        example: 'A comprehensive guide to role-based access control in Express applications...',
+      },
+      author: {
+        $ref: '#/components/schemas/User',
+      },
+      tags: {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['nodejs', 'express', 'security'],
+      },
+      status: {
+        type: 'string',
+        enum: ['draft', 'published'],
+        example: 'published',
+      },
+      createdAt: {
+        type: 'string',
+        format: 'date-time',
+        example: '2026-10-12T18:30:00.000Z',
+      },
+      updatedAt: {
+        type: 'string',
+        format: 'date-time',
+        example: '2026-10-12T18:30:00.000Z',
+      },
+    },
+  },
+  CreatePostRequest: {
+    type: 'object',
+    required: ['title', 'content'],
+    properties: {
+      title: {
+        type: 'string',
+        minLength: 3,
+        maxLength: 200,
+        example: 'Mastering Node.js and RBAC',
+      },
+      content: {
+        type: 'string',
+        minLength: 5,
+        example: 'A comprehensive guide to role-based access control in Express applications...',
+      },
+      tags: {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['nodejs', 'express'],
+      },
+      status: {
+        type: 'string',
+        enum: ['draft', 'published'],
+        default: 'published',
+        example: 'published',
+      },
+    },
+  },
+  UpdatePostRequest: {
+    type: 'object',
+    properties: {
+      title: {
+        type: 'string',
+        minLength: 3,
+        maxLength: 200,
+        example: 'Updated Post Title',
+      },
+      content: {
+        type: 'string',
+        minLength: 5,
+        example: 'Updated post content...',
+      },
+      tags: {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['updates', 'blog'],
+      },
+      status: {
+        type: 'string',
+        enum: ['draft', 'published'],
+        example: 'published',
+      },
+    },
+  },
+  PostResponse: {
+    type: 'object',
+    properties: {
+      success: {
+        type: 'boolean',
+        example: true,
+      },
+      message: {
+        type: 'string',
+        example: 'Post created successfully.',
+      },
+      data: {
+        type: 'object',
+        properties: {
+          post: {
+            $ref: '#/components/schemas/Post',
+          },
+        },
+      },
+    },
+  },
+  UpdateUserRoleRequest: {
+    type: 'object',
+    required: ['role'],
+    properties: {
+      role: {
+        type: 'string',
+        enum: ['user', 'admin'],
+        example: 'admin',
+        description: 'New role to assign to the user',
+      },
+    },
+  },
+  UpdateUserRequest: {
+    type: 'object',
+    properties: {
+      name: {
+        type: 'string',
+        example: 'Jane Doe',
+      },
+      username: {
+        type: 'string',
+        example: 'jane_doe',
+      },
+      role: {
+        type: 'string',
+        enum: ['user', 'admin'],
+        description: 'Role can only be changed by Admin users',
+        example: 'admin',
+      },
+    },
+  },
 };
 
 module.exports = schemas;

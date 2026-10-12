@@ -29,7 +29,20 @@ const register = async (req, res, next) => {
       });
     }
 
-    const { username, email, password, name } = validationResult.data;
+    const { username, email, password, name, role, adminSecret } = validationResult.data;
+
+    // Check if role is admin and verify admin secret key
+    let assignedRole = 'user';
+    if (role === 'admin') {
+      const configuredSecret = process.env.ADMIN_SECRET_KEY;
+      if (!configuredSecret || adminSecret !== configuredSecret) {
+        return res.status(403).json({
+          success: false,
+          message: 'Invalid or missing admin registration secret key.',
+        });
+      }
+      assignedRole = 'admin';
+    }
 
     // Check if email or username already exists
     const existingUser = await User.findOne({
@@ -50,6 +63,7 @@ const register = async (req, res, next) => {
       email,
       password,
       name,
+      role: assignedRole,
     });
 
     // Generate tokens

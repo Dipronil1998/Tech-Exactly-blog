@@ -4,6 +4,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const postRoutes = require('./routes/postRoutes');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const swaggerUi = require('swagger-ui-express');
@@ -63,8 +65,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Authentication routes
+// API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
 
 // 404 Not Found handler
 app.use(notFoundHandler);
