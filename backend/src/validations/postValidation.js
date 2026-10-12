@@ -11,7 +11,6 @@ const createPostSchema = z.object({
     .string({ required_error: 'Content is required' })
     .trim()
     .min(5, 'Content must be at least 5 characters long'),
-  tags: z.array(z.string().trim()).optional().default([]),
   status: z.enum(['draft', 'published']).optional().default('published'),
 });
 
@@ -29,17 +28,15 @@ const updatePostSchema = z
       .trim()
       .min(5, 'Content must be at least 5 characters long')
       .optional(),
-    tags: z.array(z.string().trim()).optional(),
     status: z.enum(['draft', 'published']).optional(),
   })
   .refine(
     (data) =>
       data.title !== undefined ||
       data.content !== undefined ||
-      data.tags !== undefined ||
       data.status !== undefined,
     {
-      message: 'At least one field (title, content, tags, or status) must be provided for update.',
+      message: 'At least one field (title, content, or status) must be provided for update.',
     }
   );
 

@@ -55,7 +55,6 @@ async function runPostTests() {
       .send({
         title: 'Mastering Node.js & Clean Architecture (2026 Guide)!',
         content: 'Comprehensive deep dive into building scalable backend services.',
-        tags: ['nodejs', 'express', 'clean-code'],
         status: 'published',
       });
 
@@ -78,7 +77,6 @@ async function runPostTests() {
       .send({
         title: 'Mastering Node.js & Clean Architecture (2026 Guide)!',
         content: 'Another post with the exact same title to test uniqueness.',
-        tags: ['duplicate-test'],
       });
 
     assert(postRes2.status === 201, 'Second post with duplicate title created (201)');

@@ -20,12 +20,11 @@ const createPost = async (req, res, next) => {
       });
     }
 
-    const { title, content, tags, status } = validationResult.data;
+    const { title, content, status } = validationResult.data;
 
     const post = new Post({
       title,
       content,
-      tags,
       status,
       author: req.user._id,
       isDeleted: false,
@@ -66,11 +65,6 @@ const getAllPosts = async (req, res, next) => {
     // Filter by author
     if (req.query.author) {
       query.author = req.query.author;
-    }
-
-    // Filter by tag
-    if (req.query.tag) {
-      query.tags = req.query.tag;
     }
 
     // Filter by status
@@ -183,11 +177,10 @@ const updatePost = async (req, res, next) => {
       });
     }
 
-    const { title, content, tags, status } = validationResult.data;
+    const { title, content, status } = validationResult.data;
 
     if (title !== undefined) post.title = title;
     if (content !== undefined) post.content = content;
-    if (tags !== undefined) post.tags = tags;
     if (status !== undefined) post.status = status;
 
     await post.save();

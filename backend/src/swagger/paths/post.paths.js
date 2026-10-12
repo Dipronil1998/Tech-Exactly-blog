@@ -25,12 +25,6 @@ const postPaths = {
           description: 'Filter by author User ID',
         },
         {
-          name: 'tag',
-          in: 'query',
-          schema: { type: 'string' },
-          description: 'Filter by tag',
-        },
-        {
           name: 'search',
           in: 'query',
           schema: { type: 'string' },

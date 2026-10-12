@@ -50,7 +50,7 @@ A secure, production-ready User Authentication module built with **Express.js**,
    - Built-in Bearer JWT Authorization and cookie auth testing.
 
 9. **Post Management, Slug Generation & Soft Deletes**
-   - **Fields**: `title`, `slug`, `content`, `author`, `tags`, `status`, `isDeleted`, `deletedAt`, timestamps (`createdAt`, `updatedAt`).
+   - **Fields**: `title`, `slug`, `content`, `author`, `status`, `isDeleted`, `deletedAt`, timestamps (`createdAt`, `updatedAt`).
    - **URL-Friendly Slugs**: Automatically generated from title on save and update with duplicate collision resolution (e.g. `my-post-title-1`).
    - **Soft Deletes**: Posts are marked with `isDeleted: true` and `deletedAt: timestamp`. Soft-deleted posts are automatically hidden from public feeds and single post endpoints.
    - **Restore**: Easily restored via `PATCH /api/posts/:id/restore`.

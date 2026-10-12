@@ -173,7 +173,6 @@ async function runRbacTests() {
       .send({
         title: "Alice's First Post",
         content: 'Content written by Alice for testing permissions.',
-        tags: ['alice', 'testing'],
       });
     assert(postARes.status === 201, 'Alice can create a post (201)');
     const postAId = postARes.body.data.post._id;
@@ -185,7 +184,6 @@ async function runRbacTests() {
       .send({
         title: "Bob's Tech Article",
         content: 'Content written by Bob for testing permissions.',
-        tags: ['bob', 'tech'],
       });
     assert(postBRes.status === 201, 'Bob can create a post (201)');
     const postBId = postBRes.body.data.post._id;

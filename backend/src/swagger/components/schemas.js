@@ -263,11 +263,6 @@ const schemas = {
       author: {
         $ref: '#/components/schemas/User',
       },
-      tags: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['nodejs', 'express', 'security'],
-      },
       status: {
         type: 'string',
         enum: ['draft', 'published'],
@@ -311,11 +306,6 @@ const schemas = {
         minLength: 5,
         example: 'A comprehensive guide to role-based access control in Express applications...',
       },
-      tags: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['nodejs', 'express'],
-      },
       status: {
         type: 'string',
         enum: ['draft', 'published'],
@@ -337,11 +327,6 @@ const schemas = {
         type: 'string',
         minLength: 5,
         example: 'Updated post content...',
-      },
-      tags: {
-        type: 'array',
-        items: { type: 'string' },
-        example: ['updates', 'blog'],
       },
       status: {
         type: 'string',

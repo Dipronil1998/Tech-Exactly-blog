@@ -29,10 +29,6 @@ const postSchema = new mongoose.Schema(
       required: [true, 'Post must have an author'],
       index: true,
     },
-    tags: {
-      type: [String],
-      default: [],
-    },
     status: {
       type: String,
       enum: ['draft', 'published'],
