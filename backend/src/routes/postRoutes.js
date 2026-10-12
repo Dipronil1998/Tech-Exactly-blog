@@ -5,6 +5,7 @@ const {
   getPostById,
   updatePost,
   deletePost,
+  restorePost,
 } = require('../controllers/postController');
 const { protect, checkPostOwnershipOrAdmin } = require('../middleware/authMiddleware');
 
@@ -20,5 +21,6 @@ router.post('/', protect, createPost);
 // Role & Ownership Protected routes (Author or Admin only)
 router.put('/:id', protect, checkPostOwnershipOrAdmin, updatePost);
 router.delete('/:id', protect, checkPostOwnershipOrAdmin, deletePost);
+router.patch('/:id/restore', protect, checkPostOwnershipOrAdmin, restorePost);
 
 module.exports = router;

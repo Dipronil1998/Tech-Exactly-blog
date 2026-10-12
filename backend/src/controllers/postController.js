@@ -1,7 +1,8 @@
+const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const { createPostSchema, updatePostSchema } = require('../validations/postValidation');
 
-// @desc    Create a new post
+// @desc    Create a new post with auto-generated slug
 // @route   POST /api/posts
 // @access  Private (Any authenticated user)
 const createPost = async (req, res, next) => {
@@ -27,6 +28,7 @@ const createPost = async (req, res, next) => {
       tags,
       status,
       author: req.user._id,
+      isDeleted: false,
     });
 
     await post.save();
@@ -44,7 +46,7 @@ const createPost = async (req, res, next) => {
   }
 };
 
-// @desc    Get all posts
+// @desc    Get all posts (soft-deleted posts excluded by default)
 // @route   GET /api/posts
 // @access  Public
 const getAllPosts = async (req, res, next) => {
@@ -54,6 +56,12 @@ const getAllPosts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const query = {};
+
+    // Soft delete filter: exclude deleted posts by default
+    const includeDeleted = req.query.includeDeleted === 'true';
+    if (!includeDeleted) {
+      query.isDeleted = false;
+    }
 
     // Filter by author
     if (req.query.author) {
@@ -65,14 +73,17 @@ const getAllPosts = async (req, res, next) => {
       query.tags = req.query.tag;
     }
 
-    // Filter by status (allow drafts if admin or requesting user's own posts)
+    // Filter by status
     if (req.query.status) {
       query.status = req.query.status;
     }
 
-    // Keyword search in title
+    // Keyword search in title or content
     if (req.query.search) {
-      query.title = { $regex: req.query.search, $options: 'i' };
+      query.$or = [
+        { title: { $regex: req.query.search, $options: 'i' } },
+        { content: { $regex: req.query.search, $options: 'i' } },
+      ];
     }
 
     const [posts, totalPosts] = await Promise.all([
@@ -101,18 +112,36 @@ const getAllPosts = async (req, res, next) => {
   }
 };
 
-// @desc    Get single post by ID
-// @route   GET /api/posts/:id
+// @desc    Get single post by ID or Slug
+// @route   GET /api/posts/:idOrSlug
 // @access  Public
-const getPostById = async (req, res, next) => {
+const getPostByIdOrSlug = async (req, res, next) => {
   try {
-    const post = await Post.findById(req.params.id).populate('author', 'username email name role');
+    const { id } = req.params;
+
+    // Check if parameter is a valid MongoDB ObjectId or a slug
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    const query = isObjectId ? { _id: id } : { slug: id.toLowerCase() };
+
+    const post = await Post.findOne(query).populate('author', 'username email name role');
 
     if (!post) {
       return res.status(404).json({
         success: false,
         message: 'Post not found.',
       });
+    }
+
+    // If soft-deleted, prevent public viewing unless admin or owner
+    if (post.isDeleted) {
+      const isOwner = req.user && post.author._id.toString() === req.user._id.toString();
+      const isAdmin = req.user && req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(404).json({
+          success: false,
+          message: 'Post not found.',
+        });
+      }
     }
 
     return res.status(200).json({
@@ -126,7 +155,7 @@ const getPostById = async (req, res, next) => {
   }
 };
 
-// @desc    Update a post
+// @desc    Update a post (updates slug if title changes)
 // @route   PUT /api/posts/:id
 // @access  Private (Author or Admin)
 const updatePost = async (req, res, next) => {
@@ -146,6 +175,14 @@ const updatePost = async (req, res, next) => {
 
     // post is already retrieved and RBAC verified by checkPostOwnershipOrAdmin middleware
     const post = req.post;
+
+    if (post.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot update a soft-deleted post. Please restore it first.',
+      });
+    }
+
     const { title, content, tags, status } = validationResult.data;
 
     if (title !== undefined) post.title = title;
@@ -168,7 +205,7 @@ const updatePost = async (req, res, next) => {
   }
 };
 
-// @desc    Delete a post
+// @desc    Soft delete a post (sets isDeleted: true and deletedAt timestamp)
 // @route   DELETE /api/posts/:id
 // @access  Private (Author or Admin)
 const deletePost = async (req, res, next) => {
@@ -176,11 +213,60 @@ const deletePost = async (req, res, next) => {
     // post is already retrieved and RBAC verified by checkPostOwnershipOrAdmin middleware
     const post = req.post;
 
-    await post.deleteOne();
+    // Optional hard delete if requested by admin
+    if (req.query.hardDelete === 'true' && req.user.role === 'admin') {
+      await post.deleteOne();
+      return res.status(200).json({
+        success: true,
+        message: 'Post permanently deleted.',
+      });
+    }
+
+    if (post.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Post is already soft-deleted.',
+      });
+    }
+
+    // Soft delete
+    await post.softDelete();
 
     return res.status(200).json({
       success: true,
-      message: 'Post deleted successfully.',
+      message: 'Post soft deleted successfully.',
+      data: {
+        post,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Restore a soft-deleted post
+// @route   PATCH /api/posts/:id/restore
+// @access  Private (Author or Admin)
+const restorePost = async (req, res, next) => {
+  try {
+    const post = req.post;
+
+    if (!post.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: 'Post is not deleted.',
+      });
+    }
+
+    await post.restore();
+    await post.populate('author', 'username email name role');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Post restored successfully.',
+      data: {
+        post,
+      },
     });
   } catch (error) {
     next(error);
@@ -190,7 +276,8 @@ const deletePost = async (req, res, next) => {
 module.exports = {
   createPost,
   getAllPosts,
-  getPostById,
+  getPostById: getPostByIdOrSlug,
   updatePost,
   deletePost,
+  restorePost,
 };

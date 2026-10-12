@@ -251,6 +251,11 @@ const schemas = {
         type: 'string',
         example: 'Mastering Node.js and RBAC',
       },
+      slug: {
+        type: 'string',
+        example: 'mastering-nodejs-and-rbac',
+        description: 'Auto-generated URL-friendly unique slug',
+      },
       content: {
         type: 'string',
         example: 'A comprehensive guide to role-based access control in Express applications...',
@@ -267,6 +272,17 @@ const schemas = {
         type: 'string',
         enum: ['draft', 'published'],
         example: 'published',
+      },
+      isDeleted: {
+        type: 'boolean',
+        example: false,
+        description: 'Soft delete flag',
+      },
+      deletedAt: {
+        type: 'string',
+        format: 'date-time',
+        nullable: true,
+        example: null,
       },
       createdAt: {
         type: 'string',

@@ -184,6 +184,45 @@ Enforced at the API middleware level.
       },
     },
   },
+  '/api/posts/{id}/restore': {
+    patch: {
+      tags: ['Posts'],
+      summary: 'Restore a soft-deleted post (Author or Admin)',
+      description: 'Restores a previously soft-deleted post (sets isDeleted to false and clears deletedAt timestamp).',
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Post ID to restore',
+        },
+      ],
+      responses: {
+        200: {
+          description: 'Post restored successfully',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/PostResponse' },
+            },
+          },
+        },
+        400: {
+          description: 'Post is not deleted',
+        },
+        401: {
+          description: 'Unauthorized. Token required.',
+        },
+        403: {
+          description: 'Forbidden. Author or Admin role required.',
+        },
+        404: {
+          description: 'Post not found',
+        },
+      },
+    },
+  },
 };
 
 module.exports = postPaths;

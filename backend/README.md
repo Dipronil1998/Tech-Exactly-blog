@@ -49,6 +49,13 @@ A secure, production-ready User Authentication module built with **Express.js**,
    - Modular OpenAPI 3.0 specification served at `/api/docs` and `/api/docs.json`.
    - Built-in Bearer JWT Authorization and cookie auth testing.
 
+9. **Post Management, Slug Generation & Soft Deletes**
+   - **Fields**: `title`, `slug`, `content`, `author`, `tags`, `status`, `isDeleted`, `deletedAt`, timestamps (`createdAt`, `updatedAt`).
+   - **URL-Friendly Slugs**: Automatically generated from title on save and update with duplicate collision resolution (e.g. `my-post-title-1`).
+   - **Soft Deletes**: Posts are marked with `isDeleted: true` and `deletedAt: timestamp`. Soft-deleted posts are automatically hidden from public feeds and single post endpoints.
+   - **Restore**: Easily restored via `PATCH /api/posts/:id/restore`.
+   - **Zod Validation**: Request payloads validated for field presence, lengths, and valid types.
+
 ---
 
 ## API Endpoints
@@ -74,14 +81,15 @@ A secure, production-ready User Authentication module built with **Express.js**,
 | `PUT` | `/api/users/:id/role` | **Admin Only** | Promote or demote user role (`user` / `admin`) |
 | `DELETE` | `/api/users/:id` | **Admin Only** | Delete a user account and cascade delete their posts |
 
-### Posts Management (RBAC)
+### Posts Management (CRUD, Slugs & Soft Deletes)
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
 | `GET` | `/api/posts` | Public | List published posts with pagination, search, author filter |
-| `GET` | `/api/posts/:id` | Public | View single post details |
-| `POST` | `/api/posts` | **Authenticated User** | Create new blog post (author set automatically) |
-| `PUT` | `/api/posts/:id` | **Author or Admin** | Edit post (Regular users: own only; Admins: any post) |
-| `DELETE` | `/api/posts/:id` | **Author or Admin** | Delete post (Regular users: own only; Admins: any post) |
+| `GET` | `/api/posts/:idOrSlug` | Public | View single post by MongoDB ObjectId or URL Slug |
+| `POST` | `/api/posts` | **Authenticated User** | Create new blog post (auto slug generation, author assigned) |
+| `PUT` | `/api/posts/:id` | **Author or Admin** | Edit post (Regular users: own only; Admins: any post; updates slug) |
+| `DELETE` | `/api/posts/:id` | **Author or Admin** | Soft delete post (sets `isDeleted: true` and `deletedAt`) |
+| `PATCH` | `/api/posts/:id/restore` | **Author or Admin** | Restore a soft-deleted post |
 
 ---
 
