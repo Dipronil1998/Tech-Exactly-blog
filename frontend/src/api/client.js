@@ -34,30 +34,45 @@ export const clearStoredAuth = () => {
   setStoredUser(null);
 };
 
-// Refresh access token using refresh token
+let activeRefreshPromise = null;
+
+// Refresh access token using refresh token (with concurrency lock / mutex)
 export const refreshToken = async () => {
-  const token = getStoredRefreshToken();
-
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: token }),
-    credentials: 'include',
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok || !data.data?.accessToken) {
-    clearStoredAuth();
-    throw new Error(data.message || 'Session expired');
+  // If a refresh is already in progress, reuse the same promise so parallel calls don't double-submit
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
   }
 
-  setStoredToken(data.data.accessToken);
-  if (data.data.refreshToken) {
-    setStoredRefreshToken(data.data.refreshToken);
-  }
+  activeRefreshPromise = (async () => {
+    try {
+      const token = getStoredRefreshToken();
 
-  return data.data.accessToken;
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: token || undefined }),
+        credentials: 'include',
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.data?.accessToken) {
+        clearStoredAuth();
+        throw new Error(data.message || 'Session expired');
+      }
+
+      setStoredToken(data.data.accessToken);
+      if (data.data.refreshToken) {
+        setStoredRefreshToken(data.data.refreshToken);
+      }
+
+      return data.data.accessToken;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
 };
 
 // Generic API request with auto-retry on 401
@@ -77,6 +92,14 @@ async function request(endpoint, options = {}) {
 
   // If 401 (access token expired), refresh token and retry the request once
   if (response.status === 401 && !options._retry && !endpoint.includes('/auth/')) {
+    // Only attempt refresh if a session exists (either access token or refresh token)
+    if (!getStoredToken() && !getStoredRefreshToken()) {
+      clearStoredAuth();
+      const error = new Error('Authentication required');
+      error.status = 401;
+      throw error;
+    }
+
     try {
       const newToken = await refreshToken();
       return request(endpoint, {

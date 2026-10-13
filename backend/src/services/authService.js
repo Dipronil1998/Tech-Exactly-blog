@@ -113,27 +113,30 @@ const refreshAccessToken = async (token) => {
     throw new AppError('Invalid or expired refresh token. Please log in again.', 401);
   }
 
-  const user = await User.findById(decoded.id);
-  if (!user) {
-    throw new AppError('User no longer exists.', 401);
-  }
+  // Atomically remove the old refresh token if present (prevents race conditions / duplicate rotation)
+  const updatedUser = await User.findOneAndUpdate(
+    { _id: decoded.id, 'refreshTokens.token': token },
+    { $pull: { refreshTokens: { token } } },
+    { returnDocument: 'after' }
+  );
 
-  // Verify token exists in user's saved tokens list
-  const tokenIndex = user.refreshTokens.findIndex((t) => t.token === token);
-  if (tokenIndex === -1) {
+  if (!updatedUser) {
     throw new AppError('Refresh token has been revoked or already used.', 401);
   }
 
-  // Refresh Token Rotation: Remove used token and issue a fresh pair
-  user.refreshTokens.splice(tokenIndex, 1);
-  const newAccessToken = generateAccessToken(user);
-  const newRefreshToken = generateRefreshToken(user);
+  // Generate new token pair
+  const newAccessToken = generateAccessToken(updatedUser);
+  const newRefreshToken = generateRefreshToken(updatedUser);
 
-  user.refreshTokens.push({ token: newRefreshToken, createdAt: new Date() });
-  if (user.refreshTokens.length > 5) {
-    user.refreshTokens = user.refreshTokens.slice(-5);
-  }
-  await user.save();
+  // Atomically append the new refresh token (retaining max 5 active tokens)
+  await User.findByIdAndUpdate(decoded.id, {
+    $push: {
+      refreshTokens: {
+        $each: [{ token: newRefreshToken, createdAt: new Date() }],
+        $slice: -5,
+      },
+    },
+  });
 
   return {
     accessToken: newAccessToken,
