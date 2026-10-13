@@ -2,6 +2,7 @@ const express = require('express');
 const {
   register,
   login,
+  googleAuth,
   refreshToken,
   logout,
   getMe,
@@ -14,6 +15,7 @@ const router = express.Router();
 // Public routes protected by strict rate limiter
 router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
+router.post('/google', authLimiter, googleAuth);
 router.post('/refresh', authLimiter, refreshToken);
 
 // Logout route

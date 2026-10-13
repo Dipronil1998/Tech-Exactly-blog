@@ -95,6 +95,65 @@ describe('Integration Test: Authentication & Token Lifecycle', () => {
     });
   });
 
+  describe('POST /api/auth/google', () => {
+    it('should register a new OAuth user with Google details and return tokens', async () => {
+      const googlePayload = {
+        email: 'googleauthor@example.com',
+        name: 'Google Author',
+        googleId: 'google_oauth_12345',
+        avatar: 'https://example.com/avatar.jpg',
+      };
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send(googlePayload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user.email).toBe(googlePayload.email);
+      expect(res.body.data.user.name).toBe(googlePayload.name);
+      expect(res.body.data.user.googleId).toBe(googlePayload.googleId);
+      expect(res.body.data.user.avatar).toBe(googlePayload.avatar);
+      expect(res.body.data.accessToken).toBeDefined();
+      expect(res.body.data.refreshToken).toBeDefined();
+
+      const cookies = res.headers['set-cookie'];
+      expect(cookies).toBeDefined();
+      const refreshCookie = cookies.find((c) => c.startsWith('refreshToken='));
+      expect(refreshCookie).toBeDefined();
+    });
+
+    it('should link Google account when an existing user signs in with Google email', async () => {
+      await request(app).post('/api/auth/register').send(testUser);
+
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({
+          email: testUser.email,
+          name: 'Alex Developer',
+          googleId: 'google_alex_9999',
+          avatar: 'https://example.com/alex.jpg',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user.email).toBe(testUser.email);
+      expect(res.body.data.user.googleId).toBe('google_alex_9999');
+
+      const userInDb = await User.findOne({ email: testUser.email });
+      expect(userInDb.googleId).toBe('google_alex_9999');
+    });
+
+    it('should reject Google login if required identifier is missing (400)', async () => {
+      const res = await request(app)
+        .post('/api/auth/google')
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
   describe('GET /api/auth/me', () => {
     it('should retrieve current user profile with valid Bearer token', async () => {
       const reg = await request(app).post('/api/auth/register').send(testUser);
@@ -194,6 +253,7 @@ describe('Integration Test: Authentication & Token Lifecycle', () => {
       expect(res.body.openapi).toBe('3.0.0');
       expect(res.body.paths['/api/auth/register']).toBeDefined();
       expect(res.body.paths['/api/auth/login']).toBeDefined();
+      expect(res.body.paths['/api/auth/google']).toBeDefined();
     });
   });
 });

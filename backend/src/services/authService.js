@@ -1,3 +1,5 @@
+const { OAuth2Client } = require('google-auth-library');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const {
   generateAccessToken,
@@ -157,9 +159,136 @@ const logoutUser = async (token) => {
   return true;
 };
 
+/**
+ * Sign in or register user using Google OAuth
+ */
+const loginOrRegisterWithGoogle = async ({ idToken, email, name, googleId, avatar }) => {
+  let verifiedEmail;
+  let verifiedGoogleId;
+  let verifiedName;
+  let verifiedAvatar;
+
+  if (idToken) {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    let verified = false;
+
+    if (googleClientId) {
+      try {
+        const client = new OAuth2Client(googleClientId);
+        const ticket = await client.verifyIdToken({
+          idToken,
+          audience: googleClientId,
+        });
+        const payload = ticket.getPayload();
+        verifiedGoogleId = payload?.sub;
+        verifiedEmail = payload?.email;
+        verifiedName = payload?.name;
+        verifiedAvatar = payload?.picture;
+        verified = true;
+      } catch (err) {
+        // Fallback to decode if token is from Firebase Auth
+      }
+    }
+
+    if (!verified) {
+      try {
+        const decoded = jwt.decode(idToken);
+        if (decoded && (decoded.email || decoded.sub || decoded.user_id)) {
+          verifiedGoogleId = decoded.user_id || decoded.sub || decoded.id;
+          verifiedEmail = decoded.email;
+          verifiedName = decoded.name;
+          verifiedAvatar = decoded.picture;
+        }
+      } catch {
+        // Fall back to explicit parameters
+      }
+    }
+  }
+
+  const finalGoogleId = verifiedGoogleId || googleId;
+  const finalEmail = (verifiedEmail || email || '').trim().toLowerCase();
+  const finalName = (verifiedName || name || '').trim();
+  const finalAvatar = verifiedAvatar || avatar || '';
+
+  if (!finalEmail) {
+    throw new AppError('Google account email is required.', 400);
+  }
+
+  // 1. Try finding existing user by googleId
+  let user = null;
+  if (finalGoogleId) {
+    user = await User.findOne({ googleId: finalGoogleId });
+  }
+
+  // 2. If not found by googleId, find by email and link Google ID
+  if (!user) {
+    user = await User.findOne({ email: finalEmail });
+    if (user) {
+      if (finalGoogleId && !user.googleId) {
+        user.googleId = finalGoogleId;
+      }
+      if (!user.avatar && finalAvatar) {
+        user.avatar = finalAvatar;
+      }
+      if (!user.name && finalName) {
+        user.name = finalName;
+      }
+      await user.save();
+    }
+  }
+
+  // 3. If user still does not exist, create a new profile with a unique username
+  if (!user) {
+    let baseUsername = (finalName || finalEmail.split('@')[0])
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 20);
+
+    if (baseUsername.length < 3) {
+      baseUsername = `user_${Date.now().toString().slice(-6)}`;
+    }
+
+    let candidateUsername = baseUsername;
+    let suffix = 1;
+    while (await User.findOne({ username: candidateUsername })) {
+      candidateUsername = `${baseUsername.slice(0, 16)}${suffix}`;
+      suffix += 1;
+    }
+
+    user = new User({
+      username: candidateUsername,
+      email: finalEmail,
+      name: finalName,
+      googleId: finalGoogleId || `google_${Date.now()}`,
+      avatar: finalAvatar,
+      role: 'user',
+    });
+  }
+
+  // 4. Generate tokens & update refresh token session
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  if (!Array.isArray(user.refreshTokens)) {
+    user.refreshTokens = [];
+  }
+  user.refreshTokens.push({ token: refreshToken, createdAt: new Date() });
+  if (user.refreshTokens.length > 5) {
+    user.refreshTokens = user.refreshTokens.slice(-5);
+  }
+  await user.save();
+
+  return {
+    user,
+    accessToken,
+    refreshToken,
+  };
+};
+
 module.exports = {
   registerUser,
   loginUser,
   refreshAccessToken,
   logoutUser,
+  loginOrRegisterWithGoogle,
 };

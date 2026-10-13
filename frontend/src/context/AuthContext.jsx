@@ -104,6 +104,22 @@ export const AuthProvider = ({ children }) => {
     throw new Error(res.message || 'Registration failed');
   };
 
+  const loginWithGoogle = async (googleData) => {
+    const res = await api.googleAuth(googleData);
+    if (res.success && res.data) {
+      const { user: userData, accessToken, refreshToken } = res.data;
+      setUser(userData);
+      setToken(accessToken);
+      setStoredToken(accessToken);
+      if (refreshToken) {
+        setStoredRefreshToken(refreshToken);
+      }
+      setStoredUser(userData);
+      return userData;
+    }
+    throw new Error(res.message || 'Google authentication failed');
+  };
+
   const isAdmin = user?.role === 'admin';
   const isAuthenticated = !!user && !!token;
 
@@ -117,6 +133,7 @@ export const AuthProvider = ({ children }) => {
         isAdmin,
         login,
         register,
+        loginWithGoogle,
         logout,
         theme,
         toggleTheme,

@@ -136,6 +136,74 @@ const authPaths = {
       },
     },
   },
+  '/api/auth/google': {
+    post: {
+      tags: ['Authentication'],
+      summary: 'Sign in or sign up with Google OAuth',
+      description: 'Authenticates a user via Google ID token or profile details, creates a profile if new, issues access token and sets an HTTP-only refresh token cookie.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/GoogleAuthRequest',
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: 'Google authentication successful',
+          headers: {
+            'Set-Cookie': {
+              schema: {
+                type: 'string',
+                example: 'refreshToken=eyJhbG...; Path=/; HttpOnly; SameSite=Lax',
+              },
+              description: 'HTTP-only refresh token cookie',
+            },
+          },
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/AuthResponse',
+              },
+            },
+          },
+        },
+        400: {
+          description: 'Missing or invalid Google credentials / email',
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ValidationErrorResponse',
+              },
+            },
+          },
+        },
+        401: {
+          description: 'Invalid Google credential token',
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ErrorResponse',
+              },
+            },
+          },
+        },
+        429: {
+          description: 'Too Many Requests (Rate limit exceeded)',
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ErrorResponse',
+              },
+            },
+          },
+        },
+      },
+    },
+  },
   '/api/auth/refresh': {
     post: {
       tags: ['Authentication'],

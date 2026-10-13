@@ -1,4 +1,4 @@
-const { registerSchema, loginSchema } = require('../../src/validations/authValidation');
+const { registerSchema, loginSchema, googleAuthSchema } = require('../../src/validations/authValidation');
 const { createPostSchema, updatePostSchema } = require('../../src/validations/postValidation');
 const { createCommentSchema, updateCommentSchema } = require('../../src/validations/commentValidation');
 
@@ -53,6 +53,22 @@ describe('Unit Test: Zod Request Validations', () => {
         email: 'valid@example.com',
       };
       const result = loginSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+    });
+
+    it('should validate valid googleAuth payload with email or idToken', () => {
+      const validPayload = {
+        email: 'googleuser@gmail.com',
+        name: 'Google User',
+        googleId: '1234567890',
+      };
+      const result = googleAuthSchema.safeParse(validPayload);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject googleAuth payload without any identifier', () => {
+      const invalidPayload = {};
+      const result = googleAuthSchema.safeParse(invalidPayload);
       expect(result.success).toBe(false);
     });
   });

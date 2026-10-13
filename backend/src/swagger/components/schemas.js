@@ -89,6 +89,32 @@ const schemas = {
       },
     },
   },
+  GoogleAuthRequest: {
+    type: 'object',
+    properties: {
+      idToken: {
+        type: 'string',
+        description: 'Google OAuth ID token credential',
+        example: 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ij...',
+      },
+      email: {
+        type: 'string',
+        format: 'email',
+        description: 'Google account email (optional if idToken is supplied)',
+        example: 'user@gmail.com',
+      },
+      name: {
+        type: 'string',
+        description: 'Google account display name (optional)',
+        example: 'Jane Doe',
+      },
+      avatar: {
+        type: 'string',
+        description: 'Google profile picture URL (optional)',
+        example: 'https://lh3.googleusercontent.com/a/...',
+      },
+    },
+  },
   RefreshRequest: {
     type: 'object',
     properties: {

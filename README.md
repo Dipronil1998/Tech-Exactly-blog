@@ -20,6 +20,7 @@ cp backend/.env.example backend/.env
 | `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | Token durations | `15m` / `7d` |
 | `CLIENT_URL` | Allowed frontend origin for CORS | `http://localhost:3000` |
 | `ADMIN_SECRET_KEY` | Secret required for admin registration | `super_secret_admin_key_for_blog_2026` |
+| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Web Client ID | *(Optional for OAuth)* |
 
 ---
 
@@ -49,7 +50,7 @@ cd ../frontend && npm run dev
 
 ## 3. Feature Explanations
 
-- **Authentication & Dual-Token Security**: Short-lived Access Tokens (15m) + long-lived Refresh Tokens (7d) stored in `HttpOnly`, `SameSite=Lax` cookies. Atomic token rotation in MongoDB with a client-side concurrency mutex prevents replay attacks and race conditions.
+- **Authentication & Dual-Token Security**: Local registration/login and Google OAuth (`google-auth-library`). Access Tokens (15m) + Refresh Tokens (7d) in `HttpOnly`, `SameSite=Lax` cookies with atomic token rotation.
 - **Role-Based Access Control (RBAC)**: Supports `user` and `admin` roles. Users manage their own articles and comments; admins access the `/admin` dashboard with global metrics (`/api/admin/stats`), user role management, and content moderation.
 - **Editorial Publishing & Markdown**: Markdown editor (`/write`) with formatting toolbar, real-time preview, read-time calculation, draft saving, and auto-redirect to homepage upon publish.
 - **Slugs & Soft Deletes**: Automatic URL-friendly slug generation with collision handling. Soft deletion (`isDeleted`, `deletedAt`) preserves audit trails with a dedicated restore endpoint (`PATCH /api/posts/:id/restore`).
@@ -66,6 +67,7 @@ Interactive Swagger UI documentation is available at **`http://localhost:9001/ap
 |---|---|---|---|---|
 | **Auth** | `POST` | `/api/auth/register` | Public | Register user (`role: admin` requires `adminSecret`) |
 | **Auth** | `POST` | `/api/auth/login` | Public | Authenticate user & issue tokens / cookie |
+| **Auth** | `POST` | `/api/auth/google` | Public | Sign in / sign up with Google OAuth ID token |
 | **Auth** | `POST` | `/api/auth/refresh` | Public | Rotate refresh token & issue new access token |
 | **Auth** | `POST` | `/api/auth/logout` | Public | Revoke refresh token & clear HTTP-only cookie |
 | **Auth** | `GET` | `/api/auth/me` | User | Get current authenticated user profile |
@@ -87,7 +89,7 @@ Interactive Swagger UI documentation is available at **`http://localhost:9001/ap
 Run the automated in-memory MongoDB test suite with Jest (Unit & Integration tests):
 ```bash
 cd backend
-npm test                 # Run all 59 unit & integration tests
+npm test                 # Run all 64 unit & integration tests
 npm run test:unit        # Run unit tests only
 npm run test:integration # Run integration tests only
 npm run test:coverage    # Generate code coverage report

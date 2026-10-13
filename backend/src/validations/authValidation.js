@@ -35,7 +35,21 @@ const loginSchema = z
     path: ['identifier'],
   });
 
+// Schema for Google OAuth login / registration
+const googleAuthSchema = z
+  .object({
+    idToken: z.string().optional(),
+    email: z.string().email().optional(),
+    name: z.string().optional(),
+    googleId: z.string().optional(),
+    avatar: z.string().optional(),
+  })
+  .refine((data) => !!(data.idToken || data.email || data.googleId), {
+    message: 'Google ID token or account details are required',
+  });
+
 module.exports = {
   registerSchema,
   loginSchema,
+  googleAuthSchema,
 };

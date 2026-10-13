@@ -140,7 +140,16 @@ export const Navbar = ({
                 title={`Signed in as ${user?.username} (${user?.role})`}
               >
                 <div className="avatar-circle sm">
-                  {user?.name?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'}
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name || user.username}
+                      style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    user?.name?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'
+                  )}
                 </div>
                 <span className="user-name-label">{user?.username}</span>
               </div>

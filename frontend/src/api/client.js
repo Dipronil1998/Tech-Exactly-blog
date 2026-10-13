@@ -142,6 +142,12 @@ export const api = {
       body: JSON.stringify(userData),
     }),
 
+  googleAuth: (payload) =>
+    request('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   refreshToken,
 
   getMe: () => request('/auth/me'),

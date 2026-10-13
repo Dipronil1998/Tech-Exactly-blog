@@ -4,7 +4,7 @@ const {
   clearRefreshTokenCookie,
   REFRESH_TOKEN_COOKIE_NAME,
 } = require('../utils/tokenUtils');
-const { registerSchema, loginSchema } = require('../validations/authValidation');
+const { registerSchema, loginSchema, googleAuthSchema } = require('../validations/authValidation');
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -151,9 +151,44 @@ const getMe = async (req, res) => {
   });
 };
 
+// @desc    Authenticate with Google OAuth ID token or profile details
+// @route   POST /api/auth/google
+// @access  Public
+const googleAuth = async (req, res, next) => {
+  try {
+    const validationResult = googleAuthSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      const issues = validationResult.error.issues || validationResult.error.errors || [];
+      const formattedErrors = issues.map((err) => ({
+        field: err.path.join('.'),
+        message: err.message,
+      }));
+      return res.status(400).json({
+        success: false,
+        message: issues[0]?.message || 'Validation error',
+        errors: formattedErrors,
+      });
+    }
+
+    const result = await authService.loginOrRegisterWithGoogle(validationResult.data);
+
+    // Set HTTP-only cookie for refresh token
+    setRefreshTokenCookie(res, result.refreshToken);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Google authentication successful.',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
+  googleAuth,
   refreshToken,
   logout,
   getMe,
