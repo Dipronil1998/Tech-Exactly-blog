@@ -12,7 +12,6 @@ const firebaseConfig = {
   measurementId: "G-NLCGJ32V6K"
 };
 
-// Initialize Firebase safely
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -26,7 +25,6 @@ if (typeof window !== 'undefined') {
   }).catch(() => { });
 }
 
-// Custom parameters to prompt user account selection
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
