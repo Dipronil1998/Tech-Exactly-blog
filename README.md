@@ -20,7 +20,6 @@ cp backend/.env.example backend/.env
 | `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | Token durations | `15m` / `7d` |
 | `CLIENT_URL` | Allowed frontend origin for CORS | `http://localhost:3000` |
 | `ADMIN_SECRET_KEY` | Secret required for admin registration | `super_secret_admin_key_for_blog_2026` |
-| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Web Client ID | *(Optional for OAuth)* |
 
 ---
 
