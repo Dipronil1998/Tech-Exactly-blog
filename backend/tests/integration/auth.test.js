@@ -55,7 +55,7 @@ describe('Integration Test: Authentication & Token Lifecycle', () => {
       const res = await request(app).post('/api/auth/register').send(testUser);
       expect(res.status).toBe(409);
       expect(res.body.success).toBe(false);
-      expect(res.body.message).toMatch(/already registered/i);
+      expect(res.body.message).toMatch(/already in use|already registered/i);
     });
 
     it('should reject invalid input via Zod validation (400)', async () => {

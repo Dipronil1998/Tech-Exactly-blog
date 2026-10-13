@@ -77,9 +77,9 @@ describe('Integration Test: Admin Dashboard & Oversight', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.stats.totalUsers).toBe(2);
-      expect(res.body.data.stats.totalPosts).toBe(2);
-      expect(res.body.data.stats.totalComments).toBe(2);
+      expect(res.body.data.overview.totalUsers).toBe(2);
+      expect(res.body.data.overview.totalPosts).toBe(2);
+      expect(res.body.data.overview.totalComments).toBe(2);
       expect(res.body.data.recentPosts.length).toBe(2);
       expect(res.body.data.recentComments.length).toBe(2);
     });

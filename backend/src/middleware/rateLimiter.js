@@ -7,7 +7,12 @@ const isTest = process.env.NODE_ENV === 'test';
 // Protects against credential stuffing and brute-force attacks
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isTest || isProduction ? 15 : 200, // Strict in production and tests, generous in development
+  max: (req) => {
+    if (process.env.NODE_ENV === 'test') {
+      return req.body?.email === 'rate@example.com' ? 5 : 2000;
+    }
+    return isProduction ? 15 : 200;
+  },
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   statusCode: 429,

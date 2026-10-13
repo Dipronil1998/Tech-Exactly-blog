@@ -84,6 +84,11 @@ Interactive Swagger UI documentation is available at **`http://localhost:9001/ap
 
 ## 5. Testing
 
-Run the automated in-memory MongoDB test suite:
+Run the automated in-memory MongoDB test suite with Jest (Unit & Integration tests):
 ```bash
-cd backend && npm test
+cd backend
+npm test                 # Run all 59 unit & integration tests
+npm run test:unit        # Run unit tests only
+npm run test:integration # Run integration tests only
+npm run test:coverage    # Generate code coverage report
+```

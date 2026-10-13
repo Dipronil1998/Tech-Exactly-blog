@@ -1,15 +1,49 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-let mongoServer;
+let localServer = null;
+
+/**
+ * Resolves the MongoDB connection URI from globalSetup or spins up a fallback instance
+ */
+const getUri = async () => {
+  // 1. Check environment variable
+  if (process.env.TEST_MONGODB_URI) {
+    return process.env.TEST_MONGODB_URI;
+  }
+
+  // 2. Check globalSetup URI file
+  const uriFile = path.join(__dirname, '..', '.mongo-uri');
+  if (fs.existsSync(uriFile)) {
+    try {
+      const savedUri = fs.readFileSync(uriFile, 'utf8').trim();
+      if (savedUri) return savedUri;
+    } catch {
+      // fallback below
+    }
+  }
+
+  // 3. Fallback for standalone single-file test runs
+  if (!localServer) {
+    localServer = await MongoMemoryServer.create();
+  }
+  return localServer.getUri();
+};
 
 /**
  * Connect to in-memory test database
  */
 const connect = async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  await mongoose.connect(uri);
+  const uri = await getUri();
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(uri, {
+      driverInfo: { name: 'nodejs', version: '7.7.0' },
+      runtimeAdapters: { os },
+    });
+  }
 };
 
 /**
@@ -26,14 +60,15 @@ const clearDatabase = async () => {
 };
 
 /**
- * Disconnect and stop memory server
+ * Disconnect database
  */
 const closeDatabase = async () => {
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
-  if (mongoServer) {
-    await mongoServer.stop();
+  if (localServer) {
+    await localServer.stop();
+    localServer = null;
   }
 };
 
