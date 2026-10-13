@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { StoryCard } from './StoryCard';
 import { calculateReadTime, formatDate } from '../utils/readingUtils';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api/client';
-import { PenLine, Sparkles, Compass } from 'lucide-react';
+import { PenLine, Compass } from 'lucide-react';
 
 export const StoryFeed = ({
   posts,
@@ -13,12 +12,10 @@ export const StoryFeed = ({
   onEditStory,
   onDeleteStory,
   onOpenEditor,
-  onRefreshPosts,
   onOpenAuth,
 }) => {
   const { user, isAuthenticated } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [seeding, setSeeding] = useState(false);
 
   const categories = [
     'All',
@@ -70,45 +67,6 @@ export const StoryFeed = ({
   const standardPosts = featuredPost
     ? filteredPosts.slice(1)
     : filteredPosts;
-
-  // Sample stories seeder for effortless first-run delight
-  const handleSeedSampleStories = async () => {
-    if (!isAuthenticated) {
-      onOpenAuth('login');
-      return;
-    }
-
-    setSeeding(true);
-    try {
-      const samples = [
-        {
-          title: 'The Art of Minimalist Engineering: Less Code, More Impact',
-          content: `In an era of relentless software complexity, the hardest decision in engineering is not what to add, but what to strip away.\n\n### The Allure of Over-Engineering\nEngineers naturally love building systems. We configure abstractions, layer microservices, and introduce caching tiers long before our application ever encounters scale. But every layer of abstraction introduces cognitive load and maintenance burden.\n\n> "Simplicity is prerequisite for reliability." — Edsger W. Dijkstra\n\n### Designing for Focus\nWhen building a publishing platform, the reader doesn't care about the depth of your dependency tree. They care about two things:\n- Beautiful, readable typography that respects their attention.\n- Effortless, friction-free performance that loads instantly.\n\nBy choosing clean serif typography, generous whitespace, and pure semantic HTML, we restore the web to its original promise: sharing thoughtful ideas without distraction.`,
-          status: 'published',
-        },
-        {
-          title: 'Why Editorial Typography Matters More Than Ever',
-          content: `Reading on a screen often feels frantic. Popups, neon badges, animations, and ads compete violently for every millisecond of human attention.\n\n### The Medium Aesthetic\nMedium and Substack proved something fundamental: people are eager to read long-form essays when the environment feels like a quiet library rather than a noisy marketplace.\n\nKey principles for editorial serenity:\n- **Optimal Line Length**: Between 60 to 75 characters per line to preserve visual rhythm.\n- **Harmonious Contrast**: Deep charcoal (#242424) against crisp paper rather than eye-straining high neon.\n- **Pacing with Headers and Blockquotes**: Giving ideas room to breathe.\n\nWhen we treat content with dignity, readers reciprocate with attention.`,
-          status: 'published',
-        },
-        {
-          title: 'Building Modern REST APIs with Node.js and Express',
-          content: `Developing a reliable backend architecture requires predictable routing, robust authentication, and strict validation.\n\n### Architectural Foundations\nA resilient blog backend centers on four pillars:\n- **JWT Authentication**: Short-lived access tokens paired with secure HTTP-only refresh tokens.\n- **Role-Based Access Control**: Strict segregation between Readers, Authors, and Administrators.\n- **Zod Validation**: Guarding the boundaries of the database against malformed input.\n- **Swagger Documentation**: Self-documenting endpoints accessible to all consumer clients.\n\nHere is an example of an expressive route declaration:\n\`\`\`javascript\nrouter.post('/posts', protect, createPost);\nrouter.put('/posts/:id', protect, checkOwnership, updatePost);\n\`\`\`\n\nClean boundaries allow teams to iterate fearlessly.`,
-          status: 'published',
-        },
-      ];
-
-      for (const sample of samples) {
-        await api.createPost(sample);
-      }
-
-      await onRefreshPosts();
-    } catch (err) {
-      alert(`Could not generate sample stories: ${err.message}`);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   return (
     <div className="feed-container animate-fade-in">
@@ -177,18 +135,6 @@ export const StoryFeed = ({
               <PenLine size={16} />
               <span>Write a Story</span>
             </button>
-
-            {posts.length === 0 && (
-              <button
-                onClick={handleSeedSampleStories}
-                disabled={seeding}
-                className="btn-outline"
-                title="Populate with high quality sample articles"
-              >
-                <Sparkles size={16} />
-                <span>{seeding ? 'Generating Sample Stories...' : 'Seed Sample Stories'}</span>
-              </button>
-            )}
           </div>
         </div>
       ) : (

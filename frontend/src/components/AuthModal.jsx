@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api/client';
-import { X, User, Shield, ArrowRight } from 'lucide-react';
+import { X, ArrowRight } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
   const { login, register } = useAuth();
@@ -11,7 +10,7 @@ export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('user');
-  const [adminSecret, setAdminSecret] = useState('super_secret_admin_key_for_blog_2026');
+  const [adminSecret, setAdminSecret] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -38,59 +37,6 @@ export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
       onClose();
     } catch (err) {
       setError(err.message || 'Authentication error. Please check your inputs.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Helper for quick Demo Admin login/registration
-  const handleDemoAdmin = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      try {
-        await login('admin@example.com', 'adminPassword123!');
-      } catch {
-        // If not created yet, create demo admin
-        await api.register({
-          username: 'admin',
-          name: 'Chief Editor',
-          email: 'admin@example.com',
-          password: 'adminPassword123!',
-          role: 'admin',
-          adminSecret: 'super_secret_admin_key_for_blog_2026',
-        });
-        await login('admin@example.com', 'adminPassword123!');
-      }
-      onClose();
-    } catch (err) {
-      setError(`Demo login failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Helper for quick Demo Writer login/registration
-  const handleDemoWriter = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      try {
-        await login('writer@example.com', 'writerPassword123!');
-      } catch {
-        // If not created yet, create demo writer
-        await api.register({
-          username: 'elena_writer',
-          name: 'Elena Rostova',
-          email: 'writer@example.com',
-          password: 'writerPassword123!',
-          role: 'user',
-        });
-        await login('writer@example.com', 'writerPassword123!');
-      }
-      onClose();
-    } catch (err) {
-      setError(`Demo writer login failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -210,6 +156,7 @@ export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
                     <label style={{ fontSize: '0.75rem' }}>Admin Secret Key</label>
                     <input
                       type="password"
+                      placeholder="Enter administrator secret key"
                       value={adminSecret}
                       onChange={(e) => setAdminSecret(e.target.value)}
                       className="clean-input"
@@ -229,33 +176,6 @@ export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
               <ArrowRight size={16} />
             </button>
           </form>
-
-          {/* Quick Demo Options */}
-          <div className="auth-divider">
-            <span>or use demo accounts</span>
-          </div>
-
-          <div className="demo-accounts-grid">
-            <button
-              type="button"
-              onClick={handleDemoWriter}
-              disabled={loading}
-              className="demo-account-btn"
-            >
-              <User size={15} />
-              <span>Continue as Demo Author</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDemoAdmin}
-              disabled={loading}
-              className="demo-account-btn"
-            >
-              <Shield size={15} />
-              <span>Continue as Demo Admin</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -379,59 +299,6 @@ export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
           padding: 0.75rem;
           font-size: 0.95rem;
           margin-top: 0.5rem;
-        }
-
-        .auth-divider {
-          text-align: center;
-          margin: 1.75rem 0 1.25rem;
-          position: relative;
-        }
-
-        .auth-divider::before {
-          content: '';
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 50%;
-          height: 1px;
-          background: var(--border-subtle);
-        }
-
-        .auth-divider span {
-          position: relative;
-          background: var(--bg-primary);
-          padding: 0 0.75rem;
-          font-size: 0.75rem;
-          color: var(--text-faint);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        .demo-accounts-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
-        }
-
-        .demo-account-btn {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          background: var(--bg-subtle);
-          color: var(--text-main);
-          border: 1px solid var(--border-subtle);
-          padding: 0.55rem 1rem;
-          border-radius: var(--radius-pill);
-          font-size: 0.85rem;
-          font-weight: 500;
-          transition: all 0.15s ease;
-        }
-
-        .demo-account-btn:hover:not(:disabled) {
-          background: var(--bg-hover);
-          border-color: var(--border-muted);
         }
       `}</style>
     </div>
