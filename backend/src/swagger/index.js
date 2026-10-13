@@ -5,6 +5,7 @@ const authPaths = require('./paths/auth.paths');
 const userPaths = require('./paths/user.paths');
 const postPaths = require('./paths/post.paths');
 const commentPaths = require('./paths/comment.paths');
+const adminPaths = require('./paths/admin.paths');
 const healthPaths = require('./paths/health.paths');
 
 const swaggerDefinition = {
@@ -36,6 +37,10 @@ Interactive REST API documentation for the Blog backend authentication and Role-
       description: 'User registration, login, token refresh, logout, and current user profile',
     },
     {
+      name: 'Admin Panel',
+      description: 'System-wide dashboard statistics and oversight (Admin only)',
+    },
+    {
       name: 'Posts',
       description: 'Blog post operations (Authors manage own posts, Admins manage all posts)',
     },
@@ -58,6 +63,7 @@ Interactive REST API documentation for the Blog backend authentication and Role-
   },
   paths: {
     ...authPaths,
+    ...adminPaths,
     ...userPaths,
     ...postPaths,
     ...commentPaths,
