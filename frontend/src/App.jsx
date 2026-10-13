@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { StoryFeed } from './components/StoryFeed';
@@ -101,7 +101,7 @@ function AdminRoute({ onOpenAuth }) {
 }
 
 function PublishingPlatform() {
-  const { loading: authLoading, isAdmin } = useAuth();
+  const { loading: authLoading } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,7 +121,7 @@ function PublishingPlatform() {
     try {
       const res = await api.getPosts({
         page: targetPage,
-        limit: 10,
+        limit: 5,
         search: query ? query.trim() : undefined,
       });
       if (res.success && res.data) {
@@ -171,7 +171,7 @@ function PublishingPlatform() {
     return (
       <div className="platform-loader">
         <RefreshCw size={24} className="loader-spinner" />
-        <p>Loading The Chronicle...</p>
+        <p>Loading Blogger...</p>
         <style>{`
           .platform-loader {
             min-height: 100vh;
@@ -265,35 +265,8 @@ function PublishingPlatform() {
         {/* Minimal Editorial Footer */}
         <footer className="platform-footer">
           <div className="footer-container">
-            <div className="footer-brand-col">
-              <span className="footer-logo">The Chronicle</span>
-              <p className="footer-tagline">
-                A minimalist publishing platform dedicated to clean writing, ideas, and open dialogue.
-              </p>
-            </div>
-
-            <div className="footer-links-group">
-              <Link to="/" className="footer-link">
-                Stories
-              </Link>
-              <Link to="/write" className="footer-link">
-                Write
-              </Link>
-              {isAdmin && (
-                <Link to="/admin" className="footer-link">
-                  Admin Dashboard
-                </Link>
-              )}
-              <a href="/api/docs" target="_blank" rel="noreferrer" className="footer-link">
-                API Docs
-              </a>
-              <a href="/api/health" target="_blank" rel="noreferrer" className="footer-link">
-                Health Status
-              </a>
-            </div>
-
             <div className="footer-copy">
-              &copy; {CURRENT_YEAR} The Chronicle. All rights reserved.
+              &copy; {CURRENT_YEAR}  All rights reserved.
             </div>
           </div>
         </footer>

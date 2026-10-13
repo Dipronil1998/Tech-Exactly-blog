@@ -58,8 +58,8 @@ export const Navbar = ({
             className="brand-link"
             title="Go to Home Feed"
           >
-            <span className="brand-logo-mark">C</span>
-            <span className="brand-title">The Chronicle</span>
+            <span className="brand-logo-mark">B</span>
+            <span className="brand-title">Blogger</span>
           </Link>
           <span className="brand-divider">/</span>
           <span className="brand-tagline">Stories & Perspectives</span>

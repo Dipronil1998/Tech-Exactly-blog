@@ -77,7 +77,7 @@ export const AuthModal = ({ isOpen, initialMode = 'login', onClose }) => {
 
         <div className="auth-modal-body">
           <h2 className="auth-heading">
-            {mode === 'login' ? 'Welcome back.' : 'Join The Chronicle.'}
+            {mode === 'login' ? 'Welcome back.' : 'Join Blogger.'}
           </h2>
           <p className="auth-subheading">
             {mode === 'login'

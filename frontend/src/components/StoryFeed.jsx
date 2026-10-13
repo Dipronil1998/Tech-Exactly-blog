@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { StoryCard } from './StoryCard';
-import { calculateReadTime, formatDate } from '../utils/readingUtils';
 import { useAuth } from '../context/AuthContext';
 import { PenLine, Compass, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -22,22 +21,7 @@ export const StoryFeed = ({
     (post) => post.status !== 'draft' || (user && post.author?._id === user._id)
   );
 
-  // Featured Lead Story only on page 1 with no search query
-  const isFirstPage = !pagination || pagination.page === 1;
-  const featuredPost = displayPosts.length > 0 && !searchQuery && isFirstPage
-    ? displayPosts[0]
-    : null;
 
-  const standardPosts = featuredPost
-    ? displayPosts.slice(1)
-    : displayPosts;
-
-  const handleHeroClick = () => {
-    if (!featuredPost) return;
-    navigate(`/posts/${featuredPost.slug || featuredPost._id || featuredPost.id}`, {
-      state: { post: featuredPost },
-    });
-  };
 
   const handleWriteClick = () => {
     if (!isAuthenticated) {
@@ -103,7 +87,7 @@ export const StoryFeed = ({
           <p className="empty-desc">
             {searchQuery
               ? 'Try searching with different keywords or title terms.'
-              : 'Be the first voice on The Chronicle by sharing your perspective with the world.'}
+              : 'Be the first voice on Blogger by sharing your perspective with the world.'}
           </p>
 
           <div className="empty-actions">
@@ -128,34 +112,8 @@ export const StoryFeed = ({
       ) : (
         /* Story Feed Stream */
         <div className="stories-stream">
-          {/* Featured Lead Hero (Only on Page 1 & without search) */}
-          {featuredPost && (
-            <div
-              className="featured-hero-card"
-              onClick={handleHeroClick}
-            >
-              <div className="featured-badge">Featured Story</div>
-              <h1 className="featured-hero-title">{featuredPost.title}</h1>
-              <p className="featured-hero-excerpt">
-                {featuredPost.content
-                  ? featuredPost.content.replace(/#+\s|(\*\*|\*|_|`)/g, '')
-                  : ''}
-              </p>
-              <div className="featured-hero-meta">
-                <span className="featured-author">
-                  {featuredPost.author?.name || featuredPost.author?.username || 'Author'}
-                </span>
-                <span>·</span>
-                <span>{formatDate(featuredPost.createdAt)}</span>
-                <span>·</span>
-                <span>{calculateReadTime(featuredPost.content)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Standard Story Cards */}
           <div className="standard-feed-list">
-            {standardPosts.map((post) => (
+            {displayPosts.map((post) => (
               <StoryCard
                 key={post._id || post.id}
                 post={post}
@@ -287,67 +245,7 @@ export const StoryFeed = ({
           background: var(--bg-subtle);
         }
 
-        /* Featured Hero Story */
-        .featured-hero-card {
-          padding: 2.25rem;
-          background: var(--bg-secondary);
-          border-radius: var(--radius-md);
-          margin-bottom: 2.5rem;
-          cursor: pointer;
-          border: 1px solid var(--border-subtle);
-          transition: border-color 0.15s ease, background-color 0.15s ease;
-        }
 
-        .featured-hero-card:hover {
-          border-color: var(--border-muted);
-        }
-
-        .featured-badge {
-          display: inline-block;
-          font-size: 0.72rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--accent-primary);
-          margin-bottom: 0.75rem;
-        }
-
-        .featured-hero-title {
-          font-family: var(--font-serif);
-          font-size: 2.1rem;
-          font-weight: 700;
-          line-height: 1.25;
-          margin-bottom: 0.85rem;
-          letter-spacing: -0.015em;
-        }
-
-        .featured-hero-card:hover .featured-hero-title {
-          color: var(--accent-primary);
-        }
-
-        .featured-hero-excerpt {
-          font-size: 1.05rem;
-          color: var(--text-muted);
-          line-height: 1.6;
-          margin-bottom: 1.25rem;
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        .featured-hero-meta {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.825rem;
-          color: var(--text-muted);
-        }
-
-        .featured-author {
-          font-weight: 600;
-          color: var(--text-main);
-        }
 
         .stories-stream {
           max-width: var(--content-width);

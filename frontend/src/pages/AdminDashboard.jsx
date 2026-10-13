@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -28,20 +28,32 @@ export const AdminDashboard = ({ onBackToStories }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchDashboardData = async () => {
+  // Fetch /api/admin/stats to populate state data
+  const fetchDashboardData = useCallback(async () => {
     setError('');
     try {
-      const [statsRes, usersRes, postsRes, commentsRes] = await Promise.all([
-        api.getAdminStats(),
+      // 1. Get system statistics from GET /api/admin/stats
+      const statsRes = await api.getAdminStats();
+      if (statsRes.success && statsRes.data) {
+        setStats(statsRes.data);
+      }
+
+      // 2. Get directory lists for the management tabs (resilient against individual failures)
+      const [usersRes, postsRes, commentsRes] = await Promise.allSettled([
         api.getUsers('limit=50'),
         api.getPosts('includeDeleted=true&limit=50'),
         api.getAdminComments('limit=50'),
       ]);
 
-      if (statsRes.success) setStats(statsRes.data);
-      if (usersRes.success) setUsersList(usersRes.data?.users || []);
-      if (postsRes.success) setPostsList(postsRes.data?.posts || []);
-      if (commentsRes.success) setCommentsList(commentsRes.data?.comments || []);
+      if (usersRes.status === 'fulfilled' && usersRes.value?.success) {
+        setUsersList(usersRes.value.data?.users || []);
+      }
+      if (postsRes.status === 'fulfilled' && postsRes.value?.success) {
+        setPostsList(postsRes.value.data?.posts || []);
+      }
+      if (commentsRes.status === 'fulfilled' && commentsRes.value?.success) {
+        setCommentsList(commentsRes.value.data?.comments || []);
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
       setError(err.message || 'Error communicating with backend API');
@@ -49,11 +61,11 @@ export const AdminDashboard = ({ onBackToStories }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
   const handleManualRefresh = () => {
     setRefreshing(true);
@@ -69,6 +81,7 @@ export const AdminDashboard = ({ onBackToStories }) => {
     );
   }
 
+  // Statistics overview directly from /api/admin/stats
   const overview = stats?.overview || {
     totalUsers: usersList.length,
     totalPosts: postsList.filter((p) => !p.isDeleted).length,
@@ -77,6 +90,10 @@ export const AdminDashboard = ({ onBackToStories }) => {
     adminUsersCount: usersList.filter((u) => u.role === 'admin').length,
     regularUsersCount: usersList.filter((u) => u.role === 'user').length,
   };
+
+  const recentPosts = stats?.recentPosts || postsList.slice(0, 5);
+  const recentUsers = stats?.recentUsers || usersList.slice(0, 5);
+  const recentComments = stats?.recentComments || commentsList.slice(0, 5);
 
   return (
     <div className="dashboard-container animate-fade-in">
@@ -208,18 +225,22 @@ export const AdminDashboard = ({ onBackToStories }) => {
               </div>
 
               <div className="activity-list">
-                {postsList.slice(0, 5).map((post) => (
-                  <div key={post._id} className="activity-item">
-                    <div className="activity-indicator"></div>
-                    <div className="activity-details">
-                      <div className="activity-main-text">{post.title}</div>
-                      <div className="activity-meta">
-                        by {post.author?.name || post.author?.username} · {new Date(post.createdAt).toLocaleDateString()}
+                {recentPosts.length === 0 ? (
+                  <p className="activity-empty-text">No articles created yet.</p>
+                ) : (
+                  recentPosts.map((post) => (
+                    <div key={post._id} className="activity-item">
+                      <div className="activity-indicator"></div>
+                      <div className="activity-details">
+                        <div className="activity-main-text">{post.title}</div>
+                        <div className="activity-meta">
+                          by {post.author?.name || post.author?.username} · {new Date(post.createdAt).toLocaleDateString()}
+                        </div>
                       </div>
+                      {post.isDeleted && <span className="badge badge-deleted">Deleted</span>}
                     </div>
-                    {post.isDeleted && <span className="badge badge-deleted">Deleted</span>}
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -239,20 +260,24 @@ export const AdminDashboard = ({ onBackToStories }) => {
               </div>
 
               <div className="activity-list">
-                {usersList.slice(0, 5).map((u) => (
-                  <div key={u._id} className="activity-item">
-                    <div className="user-initial-badge">
-                      {(u.name?.[0] || u.username?.[0] || 'U').toUpperCase()}
+                {recentUsers.length === 0 ? (
+                  <p className="activity-empty-text">No members registered yet.</p>
+                ) : (
+                  recentUsers.map((u) => (
+                    <div key={u._id} className="activity-item">
+                      <div className="user-initial-badge">
+                        {(u.name?.[0] || u.username?.[0] || 'U').toUpperCase()}
+                      </div>
+                      <div className="activity-details">
+                        <div className="activity-main-text">{u.name || u.username}</div>
+                        <div className="activity-meta">{u.email}</div>
+                      </div>
+                      <span className={`badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}`}>
+                        {u.role}
+                      </span>
                     </div>
-                    <div className="activity-details">
-                      <div className="activity-main-text">{u.name || u.username}</div>
-                      <div className="activity-meta">{u.email}</div>
-                    </div>
-                    <span className={`badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}`}>
-                      {u.role}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
@@ -272,18 +297,22 @@ export const AdminDashboard = ({ onBackToStories }) => {
               </div>
 
               <div className="activity-list">
-                {commentsList.slice(0, 5).map((c) => (
-                  <div key={c._id} className="activity-item">
-                    <MessageSquare size={16} className="comment-bubble-icon" />
-                    <div className="activity-details">
-                      <div className="activity-main-text">"{c.content}"</div>
-                      <div className="activity-meta">
-                        by <span className="text-highlight">{c.author?.name || c.author?.username}</span> on post "{c.post?.title || 'Article'}"
+                {recentComments.length === 0 ? (
+                  <p className="activity-empty-text">No comments submitted yet.</p>
+                ) : (
+                  recentComments.map((c) => (
+                    <div key={c._id} className="activity-item">
+                      <MessageSquare size={16} className="comment-bubble-icon" />
+                      <div className="activity-details">
+                        <div className="activity-main-text">"{c.content}"</div>
+                        <div className="activity-meta">
+                          by <span className="text-highlight">{c.author?.name || c.author?.username}</span> on post "{c.post?.title || 'Article'}"
+                        </div>
                       </div>
+                      <span className="timestamp-text">{new Date(c.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <span className="timestamp-text">{new Date(c.createdAt).toLocaleDateString()}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -441,6 +470,12 @@ export const AdminDashboard = ({ onBackToStories }) => {
           display: flex;
           flex-direction: column;
           gap: 0.875rem;
+        }
+        .activity-empty-text {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          padding: 1.25rem 0;
+          text-align: center;
         }
         .activity-item {
           display: flex;
