@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { StoryCard } from './StoryCard';
 import { calculateReadTime, formatDate } from '../utils/readingUtils';
 import { useAuth } from '../context/AuthContext';
@@ -8,27 +8,14 @@ export const StoryFeed = ({
   posts,
   loading,
   searchQuery,
-  onSelectStory,
-  onEditStory,
   onDeleteStory,
-  onOpenEditor,
   onOpenAuth,
 }) => {
   const { user, isAuthenticated } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const navigate = useNavigate();
 
-  const categories = [
-    'All',
-    'Technology',
-    'Design',
-    'Engineering',
-    'Mindset',
-    ...(isAuthenticated ? ['My Stories', 'Drafts'] : []),
-  ];
-
-  // Filter posts
+  // Filter posts (by search query and draft status)
   const filteredPosts = posts.filter((post) => {
-    // Search query filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchTitle = post.title?.toLowerCase().includes(q);
@@ -37,30 +24,12 @@ export const StoryFeed = ({
       if (!matchTitle && !matchContent && !matchAuthor) return false;
     }
 
-    // Category filter
-    if (selectedCategory === 'All') {
-      return post.status !== 'draft' || (user && post.author?._id === user._id);
-    }
-
-    if (selectedCategory === 'My Stories') {
-      return user && (post.author?._id === user._id || post.author?.username === user.username);
-    }
-
-    if (selectedCategory === 'Drafts') {
-      return post.status === 'draft' && user && (post.author?._id === user._id || post.author?.username === user.username);
-    }
-
-    const text = `${post.title} ${post.content}`.toLowerCase();
-    if (selectedCategory === 'Technology') return text.includes('tech') || text.includes('software') || text.includes('ai') || text.includes('data');
-    if (selectedCategory === 'Design') return text.includes('design') || text.includes('ui') || text.includes('ux') || text.includes('minimal');
-    if (selectedCategory === 'Engineering') return text.includes('code') || text.includes('react') || text.includes('api') || text.includes('system') || text.includes('javascript');
-    if (selectedCategory === 'Mindset') return text.includes('life') || text.includes('mind') || text.includes('productivity') || text.includes('focus');
-
-    return true;
+    // Only author or admin sees their own drafts
+    return post.status !== 'draft' || (user && post.author?._id === user._id);
   });
 
   // Featured Lead Story (the first published story)
-  const featuredPost = filteredPosts.length > 0 && selectedCategory === 'All' && !searchQuery
+  const featuredPost = filteredPosts.length > 0 && !searchQuery
     ? filteredPosts[0]
     : null;
 
@@ -68,23 +37,23 @@ export const StoryFeed = ({
     ? filteredPosts.slice(1)
     : filteredPosts;
 
+  const handleHeroClick = () => {
+    if (!featuredPost) return;
+    navigate(`/posts/${featuredPost.slug || featuredPost._id || featuredPost.id}`, {
+      state: { post: featuredPost },
+    });
+  };
+
+  const handleWriteClick = () => {
+    if (!isAuthenticated) {
+      onOpenAuth('login');
+      return;
+    }
+    navigate('/write');
+  };
+
   return (
     <div className="feed-container animate-fade-in">
-      {/* Category Pills Bar */}
-      <div className="category-bar">
-        <div className="category-scroll">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`tag-pill ${selectedCategory === cat ? 'active' : ''}`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Search Header if Active */}
       {searchQuery && (
         <div className="search-results-banner">
@@ -114,22 +83,17 @@ export const StoryFeed = ({
           <h3 className="empty-title">
             {searchQuery
               ? `No stories found for "${searchQuery}"`
-              : selectedCategory !== 'All'
-              ? `No stories in "${selectedCategory}" yet`
               : 'No stories published yet'}
           </h3>
           <p className="empty-desc">
             {searchQuery
-              ? 'Try searching with different keywords or browse all categories.'
+              ? 'Try searching with different keywords.'
               : 'Be the first voice on The Chronicle by sharing your perspective with the world.'}
           </p>
 
           <div className="empty-actions">
             <button
-              onClick={() => {
-                if (!isAuthenticated) onOpenAuth('login');
-                else onOpenEditor();
-              }}
+              onClick={handleWriteClick}
               className="btn-primary"
             >
               <PenLine size={16} />
@@ -144,7 +108,7 @@ export const StoryFeed = ({
           {featuredPost && (
             <div
               className="featured-hero-card"
-              onClick={() => onSelectStory(featuredPost)}
+              onClick={handleHeroClick}
             >
               <div className="featured-badge">Featured Story</div>
               <h1 className="featured-hero-title">{featuredPost.title}</h1>
@@ -171,8 +135,6 @@ export const StoryFeed = ({
               <StoryCard
                 key={post._id || post.id}
                 post={post}
-                onSelect={onSelectStory}
-                onEdit={onEditStory}
                 onDelete={onDeleteStory}
               />
             ))}
@@ -184,21 +146,7 @@ export const StoryFeed = ({
         .feed-container {
           max-width: var(--container-width);
           margin: 0 auto;
-          padding: 1.5rem 1.25rem 6rem;
-        }
-
-        .category-bar {
-          border-bottom: 1px solid var(--border-subtle);
-          padding-bottom: 0.85rem;
-          margin-bottom: 2rem;
-        }
-
-        .category-scroll {
-          display: flex;
-          align-items: center;
-          gap: 0.65rem;
-          overflow-x: auto;
-          padding-bottom: 2px;
+          padding: 2rem 1.25rem 6rem;
         }
 
         .search-results-banner {
@@ -315,7 +263,6 @@ export const StoryFeed = ({
           align-items: center;
           justify-content: center;
           gap: 0.75rem;
-          flex-wrap: wrap;
         }
 
         /* Skeletons */

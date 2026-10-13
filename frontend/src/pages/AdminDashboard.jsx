@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { StatCard } from '../components/StatCard';
@@ -13,11 +14,10 @@ import {
   LayoutDashboard,
   ShieldAlert,
   ArrowUpRight,
-  Clock,
-  CheckCircle,
 } from 'lucide-react';
 
 export const AdminDashboard = ({ onBackToStories }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'users' | 'posts' | 'comments'
   const [stats, setStats] = useState(null);
@@ -94,15 +94,13 @@ export const AdminDashboard = ({ onBackToStories }) => {
         </div>
 
         <div className="header-actions">
-          {onBackToStories && (
-            <button
-              onClick={onBackToStories}
-              className="btn-outline"
-              title="Return to the reading feed"
-            >
-              ← Back to Stories
-            </button>
-          )}
+          <button
+            onClick={onBackToStories || (() => navigate('/'))}
+            className="btn-outline"
+            title="Return to the reading feed"
+          >
+            ← Back to Stories
+          </button>
           <button
             onClick={handleManualRefresh}
             disabled={refreshing}

@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { calculateReadTime } from '../utils/readingUtils';
 import {
@@ -13,19 +14,47 @@ import {
   Quote,
   Code,
   List,
+  RefreshCw,
 } from 'lucide-react';
 
 export const StoryEditor = ({ initialPost, onCancel, onSaved }) => {
-  const [title, setTitle] = useState(initialPost?.title || '');
-  const [content, setContent] = useState(initialPost?.content || '');
-  const [status, setStatus] = useState(initialPost?.status || 'published');
+  const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const passedPost = initialPost || location.state?.post;
+  const isEditing = Boolean(id || passedPost?._id || passedPost?.id);
+
+  const [title, setTitle] = useState(passedPost?.title || '');
+  const [content, setContent] = useState(passedPost?.content || '');
+  const [status, setStatus] = useState(passedPost?.status || 'published');
+  const [loadingInitial, setLoadingInitial] = useState(Boolean(id && !passedPost));
   const [isPreview, setIsPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const textareaRef = useRef(null);
 
-  const isEditing = !!initialPost?._id || !!initialPost?.id;
-  const postId = initialPost?._id || initialPost?.id;
+  // If editing by route ID and no post was passed in state, fetch from API
+  useEffect(() => {
+    if (id && !passedPost) {
+      const fetchEditPost = async () => {
+        setLoadingInitial(true);
+        try {
+          const res = await api.getPost(id);
+          if (res.success && res.data?.post) {
+            setTitle(res.data.post.title || '');
+            setContent(res.data.post.content || '');
+            setStatus(res.data.post.status || 'published');
+          }
+        } catch (err) {
+          setError(err.message || 'Could not load story to edit.');
+        } finally {
+          setLoadingInitial(false);
+        }
+      };
+      fetchEditPost();
+    }
+  }, [id, passedPost]);
 
   const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
   const readTime = calculateReadTime(content);
@@ -53,6 +82,14 @@ export const StoryEditor = ({ initialPost, onCancel, onSaved }) => {
     }, 10);
   };
 
+  const handleBack = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate(-1);
+    }
+  };
+
   const handleSave = async (submitStatus = status) => {
     if (!title.trim()) {
       setError('Please provide a title for your story.');
@@ -72,13 +109,14 @@ export const StoryEditor = ({ initialPost, onCancel, onSaved }) => {
 
     try {
       let savedPost;
-      if (isEditing) {
-        const res = await api.updatePost(postId, {
+      const targetId = id || passedPost?._id || passedPost?.id;
+      if (isEditing && targetId) {
+        const res = await api.updatePost(targetId, {
           title: title.trim(),
           content: content.trim(),
           status: submitStatus,
         });
-        savedPost = res.data?.post || { ...initialPost, title, content, status: submitStatus };
+        savedPost = res.data?.post || { title, content, status: submitStatus, _id: targetId };
       } else {
         const res = await api.createPost({
           title: title.trim(),
@@ -88,7 +126,15 @@ export const StoryEditor = ({ initialPost, onCancel, onSaved }) => {
         savedPost = res.data?.post;
       }
 
-      onSaved(savedPost);
+      if (onSaved) {
+        onSaved(savedPost);
+      } else if (savedPost) {
+        navigate(`/posts/${savedPost.slug || savedPost._id || savedPost.id}`, {
+          state: { post: savedPost },
+        });
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message || 'Failed to save story. Please try again.');
     } finally {
@@ -96,12 +142,40 @@ export const StoryEditor = ({ initialPost, onCancel, onSaved }) => {
     }
   };
 
+  if (loadingInitial) {
+    return (
+      <div className="editor-loader animate-fade-in">
+        <RefreshCw size={26} className="spinner-icon" />
+        <p>Loading story editor...</p>
+        <style>{`
+          .editor-loader {
+            min-height: 50vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            color: var(--text-muted);
+          }
+          .spinner-icon {
+            animation: spin 1s linear infinite;
+            color: var(--accent-primary);
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="editor-container animate-fade-in">
       {/* Editor Top Navigation */}
       <div className="editor-nav">
         <div className="editor-nav-left">
-          <button onClick={onCancel} className="btn-ghost-back" title="Leave editor">
+          <button onClick={handleBack} className="btn-ghost-back" title="Leave editor">
             <ArrowLeft size={16} />
             <span>Cancel</span>
           </button>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   PenLine,
@@ -11,36 +12,55 @@ import {
 } from 'lucide-react';
 
 export const Navbar = ({
-  activeView,
-  onNavigate,
   onOpenAuth,
   searchQuery,
   onSearchChange,
 }) => {
   const { user, isAuthenticated, isAdmin, logout, theme, toggleTheme } = useAuth();
   const [showSearch, setShowSearch] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleWriteClick = () => {
     if (!isAuthenticated) {
       onOpenAuth('login');
       return;
     }
-    onNavigate('editor');
+    navigate('/write');
   };
+
+  const handleSearchInputChange = (e) => {
+    const val = e.target.value;
+    onSearchChange(val);
+    if (location.pathname !== '/' && val) {
+      navigate('/');
+    }
+  };
+
+  const handleAdminToggle = () => {
+    if (location.pathname === '/admin') {
+      navigate('/');
+    } else {
+      navigate('/admin');
+    }
+  };
+
+  const isWriteActive = location.pathname === '/write' || location.pathname.startsWith('/edit');
+  const isAdminActive = location.pathname === '/admin';
 
   return (
     <header className="minimal-header">
       <div className="header-inner">
         {/* Brand / Logo */}
         <div className="brand-group">
-          <button
-            onClick={() => onNavigate('feed')}
+          <Link
+            to="/"
             className="brand-link"
             title="Go to Home Feed"
           >
             <span className="brand-logo-mark">C</span>
             <span className="brand-title">The Chronicle</span>
-          </button>
+          </Link>
           <span className="brand-divider">/</span>
           <span className="brand-tagline">Stories & Perspectives</span>
         </div>
@@ -53,7 +73,7 @@ export const Navbar = ({
               type="text"
               placeholder="Search stories, topics, authors..."
               value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={handleSearchInputChange}
               className="search-input"
             />
             {searchQuery && (
@@ -82,23 +102,23 @@ export const Navbar = ({
           {/* Write Story Button */}
           <button
             onClick={handleWriteClick}
-            className={`btn-write ${activeView === 'editor' ? 'active' : ''}`}
+            className={`btn-write ${isWriteActive ? 'active' : ''}`}
             title="Write a story"
           >
             <PenLine size={16} />
             <span className="write-label">Write</span>
           </button>
 
-          {/* Admin Command Center Link (If Admin) */}
+          {/* Admin Dashboard Link (If Admin) */}
           {isAdmin && (
             <button
-              onClick={() => onNavigate(activeView === 'admin' ? 'feed' : 'admin')}
-              className={`btn-admin-nav ${activeView === 'admin' ? 'active' : ''}`}
+              onClick={handleAdminToggle}
+              className={`btn-admin-nav ${isAdminActive ? 'active' : ''}`}
               title="System Administration"
             >
               <Shield size={15} />
               <span className="admin-label">
-                {activeView === 'admin' ? 'Back to Stories' : 'Admin'}
+                {isAdminActive ? 'Back to Stories' : 'Admin'}
               </span>
             </button>
           )}

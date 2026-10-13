@@ -1,5 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { api, getStoredToken, setStoredToken, getStoredUser, setStoredUser } from '../api/client';
+import {
+  api,
+  getStoredToken,
+  setStoredToken,
+  getStoredRefreshToken,
+  setStoredRefreshToken,
+  getStoredUser,
+  setStoredUser,
+  clearStoredAuth,
+} from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -18,11 +27,36 @@ export const AuthProvider = ({ children }) => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Verify current session with /api/auth/me on mount
+  // Sync token state on refresh or session expiration events
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+      setToken(null);
+    };
+
+    const handleTokenRefreshed = (e) => {
+      if (e.detail?.accessToken) {
+        setToken(e.detail.accessToken);
+      }
+    };
+
+    window.addEventListener('blog:session_expired', handleSessionExpired);
+    window.addEventListener('blog:token_refreshed', handleTokenRefreshed);
+
+    return () => {
+      window.removeEventListener('blog:session_expired', handleSessionExpired);
+      window.removeEventListener('blog:token_refreshed', handleTokenRefreshed);
+    };
+  }, []);
+
+  // Verify current session with /api/auth/me on mount (handles auto-refresh if token expired)
   useEffect(() => {
     const verifySession = async () => {
       const storedToken = getStoredToken();
-      if (!storedToken) {
+      const storedRefresh = getStoredRefreshToken();
+
+      // If no tokens exist at all, skip verification
+      if (!storedToken && !storedRefresh) {
         setLoading(false);
         return;
       }
@@ -32,14 +66,13 @@ export const AuthProvider = ({ children }) => {
         if (response.success && response.data?.user) {
           setUser(response.data.user);
           setStoredUser(response.data.user);
+          setToken(getStoredToken());
         }
       } catch (err) {
-        // Token expired or invalid
         console.warn('Session verification failed, signing out', err.message);
+        clearStoredAuth();
         setUser(null);
         setToken(null);
-        setStoredToken(null);
-        setStoredUser(null);
       } finally {
         setLoading(false);
       }
@@ -56,10 +89,13 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (res.success && res.data) {
-      const { user: userData, accessToken } = res.data;
+      const { user: userData, accessToken, refreshToken } = res.data;
       setUser(userData);
       setToken(accessToken);
       setStoredToken(accessToken);
+      if (refreshToken) {
+        setStoredRefreshToken(refreshToken);
+      }
       setStoredUser(userData);
       return userData;
     }
@@ -72,20 +108,22 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       console.warn('Logout API error:', e.message);
     } finally {
+      clearStoredAuth();
       setUser(null);
       setToken(null);
-      setStoredToken(null);
-      setStoredUser(null);
     }
   };
 
   const register = async (userData) => {
     const res = await api.register(userData);
     if (res.success && res.data) {
-      const { user: userDataRes, accessToken } = res.data;
+      const { user: userDataRes, accessToken, refreshToken } = res.data;
       setUser(userDataRes);
       setToken(accessToken);
       setStoredToken(accessToken);
+      if (refreshToken) {
+        setStoredRefreshToken(refreshToken);
+      }
       setStoredUser(userDataRes);
       return userDataRes;
     }

@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Clock, Trash2, Edit3, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { calculateReadTime, formatDate } from '../utils/readingUtils';
 
-export const StoryCard = ({ post, onSelect, onEdit, onDelete }) => {
+export const StoryCard = ({ post, onDelete }) => {
+  const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
 
   const authorName =
@@ -14,24 +16,17 @@ export const StoryCard = ({ post, onSelect, onEdit, onDelete }) => {
   const isAuthor = user && (user._id === post.author?._id || user.id === post.author?._id);
   const canManage = isAuthor || isAdmin;
 
-  // Extract a topic tag based on content or title
-  const extractTopic = (title = '', content = '') => {
-    const text = `${title} ${content}`.toLowerCase();
-    if (text.includes('react') || text.includes('javascript') || text.includes('code') || text.includes('api'))
-      return 'Engineering';
-    if (text.includes('design') || text.includes('ux') || text.includes('minimal'))
-      return 'Design';
-    if (text.includes('ai') || text.includes('intelligence') || text.includes('model'))
-      return 'Artificial Intelligence';
-    if (text.includes('future') || text.includes('life') || text.includes('productivity'))
-      return 'Mindset';
-    return 'Essay';
+  const handleCardClick = () => {
+    navigate(`/posts/${post.slug || post._id || post.id}`, { state: { post } });
   };
 
-  const topicTag = extractTopic(post.title, post.content);
+  const handleEditClick = (e) => {
+    e.stopPropagation();
+    navigate(`/edit/${post._id || post.id}`, { state: { post } });
+  };
 
   return (
-    <article className="story-card" onClick={() => onSelect(post)}>
+    <article className="story-card" onClick={handleCardClick}>
       {/* Top Author Metadata */}
       <div className="story-card-meta">
         <div className="avatar-circle sm">
@@ -56,7 +51,6 @@ export const StoryCard = ({ post, onSelect, onEdit, onDelete }) => {
       {/* Card Footer */}
       <div className="story-card-footer" onClick={(e) => e.stopPropagation()}>
         <div className="footer-left">
-          <span className="tag-pill">{topicTag}</span>
           <span className="read-time-indicator">
             <Clock size={13} />
             {readTime}
@@ -72,7 +66,7 @@ export const StoryCard = ({ post, onSelect, onEdit, onDelete }) => {
         {canManage && (
           <div className="card-actions">
             <button
-              onClick={() => onEdit(post)}
+              onClick={handleEditClick}
               className="action-icon-btn"
               title="Edit Story"
               aria-label="Edit Story"

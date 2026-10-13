@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { calculateReadTime, formatDate } from '../utils/readingUtils';
@@ -11,34 +12,67 @@ import {
   Check,
   Send,
   Lock,
+  RefreshCw,
 } from 'lucide-react';
 
-export const StoryReader = ({ post, onBack, onEdit, onDeletePost, onOpenAuth }) => {
+export const StoryReader = ({ onOpenAuth }) => {
+  const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user, isAuthenticated, isAdmin } = useAuth();
+
+  const [post, setPost] = useState(location.state?.post || null);
+  const [loadingPost, setLoadingPost] = useState(!location.state?.post);
+  const [postError, setPostError] = useState('');
+
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [claps, setClaps] = useState(() => {
-    const saved = localStorage.getItem(`claps_${post._id || post.id}`);
-    return saved ? parseInt(saved, 10) : 18;
-  });
+  const [claps, setClaps] = useState(18);
   const [hasClapped, setHasClapped] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
   const [commentError, setCommentError] = useState('');
 
-  const postId = post._id || post.id;
-  const authorName =
-    post.author?.name || post.author?.username || (typeof post.author === 'string' ? 'Contributor' : 'Author');
-  const authorInitial = authorName[0]?.toUpperCase() || 'A';
-  const readTime = calculateReadTime(post.content);
-  const formattedDate = formatDate(post.createdAt);
+  // Fetch post details if not provided via navigation state
+  useEffect(() => {
+    const fetchPostDetails = async () => {
+      if (post && (post._id === id || post.slug === id || post.id === id)) {
+        setLoadingPost(false);
+        return;
+      }
+      setLoadingPost(true);
+      setPostError('');
+      try {
+        const res = await api.getPost(id);
+        if (res.success && res.data?.post) {
+          setPost(res.data.post);
+        } else {
+          setPostError('Story not found.');
+        }
+      } catch (err) {
+        setPostError(err.message || 'Could not load story.');
+      } finally {
+        setLoadingPost(false);
+      }
+    };
 
-  const isAuthor = user && (user._id === post.author?._id || user.id === post.author?._id);
-  const canManagePost = isAuthor || isAdmin;
+    fetchPostDetails();
+  }, [id]);
+
+  const postId = post?._id || post?.id;
+
+  // Initialize claps
+  useEffect(() => {
+    if (postId) {
+      const saved = localStorage.getItem(`claps_${postId}`);
+      if (saved) setClaps(parseInt(saved, 10));
+    }
+  }, [postId]);
 
   // Load comments
   const fetchComments = useCallback(async () => {
+    if (!postId) return;
     try {
       const res = await api.getComments(postId);
       if (res.success && res.data) {
@@ -52,16 +86,20 @@ export const StoryReader = ({ post, onBack, onEdit, onDeletePost, onOpenAuth }) 
   }, [postId]);
 
   useEffect(() => {
-    fetchComments();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [fetchComments]);
+    if (postId) {
+      fetchComments();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [postId, fetchComments]);
 
   // Handle claps
   const handleClap = () => {
     const nextClaps = claps + 1;
     setClaps(nextClaps);
     setHasClapped(true);
-    localStorage.setItem(`claps_${postId}`, nextClaps);
+    if (postId) {
+      localStorage.setItem(`claps_${postId}`, nextClaps);
+    }
   };
 
   // Handle share
@@ -106,6 +144,17 @@ export const StoryReader = ({ post, onBack, onEdit, onDeletePost, onOpenAuth }) 
       setComments((prev) => prev.filter((c) => (c._id || c.id) !== commentId));
     } catch (err) {
       alert(`Could not delete comment: ${err.message}`);
+    }
+  };
+
+  // Delete story
+  const handleDeletePost = async () => {
+    if (!window.confirm(`Delete story "${post.title}"?`)) return;
+    try {
+      await api.deletePost(postId);
+      navigate('/');
+    } catch (err) {
+      alert(`Could not delete story: ${err.message}`);
     }
   };
 
@@ -169,10 +218,83 @@ export const StoryReader = ({ post, onBack, onEdit, onDeletePost, onOpenAuth }) 
     return elements.length > 0 ? elements : <p>{text}</p>;
   };
 
+  if (loadingPost) {
+    return (
+      <div className="reader-loader animate-fade-in">
+        <RefreshCw size={26} className="spinner-icon" />
+        <p>Loading article...</p>
+        <style>{`
+          .reader-loader {
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            color: var(--text-muted);
+          }
+          .spinner-icon {
+            animation: spin 1s linear infinite;
+            color: var(--accent-primary);
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (postError || !post) {
+    return (
+      <div className="reader-canvas animate-fade-in">
+        <button onClick={() => navigate('/')} className="back-link">
+          <ArrowLeft size={16} />
+          <span>Back to stories</span>
+        </button>
+        <div className="story-not-found-card">
+          <h2>Story Not Found</h2>
+          <p>{postError || "The story you're looking for does not exist or has been removed."}</p>
+          <button onClick={() => navigate('/')} className="btn-primary" style={{ marginTop: '1.25rem' }}>
+            Browse All Stories
+          </button>
+        </div>
+        <style>{`
+          .story-not-found-card {
+            padding: 3rem 1.5rem;
+            text-align: center;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+            margin-top: 1.5rem;
+          }
+          .story-not-found-card h2 {
+            font-family: var(--font-serif);
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+          }
+          .story-not-found-card p {
+            color: var(--text-muted);
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  const authorName =
+    post.author?.name || post.author?.username || (typeof post.author === 'string' ? 'Contributor' : 'Author');
+  const authorInitial = authorName[0]?.toUpperCase() || 'A';
+  const readTime = calculateReadTime(post.content);
+  const formattedDate = formatDate(post.createdAt);
+
+  const isAuthor = user && (user._id === post.author?._id || user.id === post.author?._id);
+  const canManagePost = isAuthor || isAdmin;
+
   return (
     <div className="reader-canvas animate-fade-in">
       {/* Back button */}
-      <button onClick={onBack} className="back-link">
+      <button onClick={() => navigate('/')} className="back-link">
         <ArrowLeft size={16} />
         <span>Back to stories</span>
       </button>
@@ -213,7 +335,7 @@ export const StoryReader = ({ post, onBack, onEdit, onDeletePost, onOpenAuth }) 
           {canManagePost && (
             <>
               <button
-                onClick={() => onEdit(post)}
+                onClick={() => navigate(`/edit/${postId}`, { state: { post } })}
                 className="action-pill-btn"
                 title="Edit story"
               >
@@ -221,11 +343,7 @@ export const StoryReader = ({ post, onBack, onEdit, onDeletePost, onOpenAuth }) 
                 <span>Edit</span>
               </button>
               <button
-                onClick={() => {
-                  if (window.confirm(`Delete "${post.title}"?`)) {
-                    onDeletePost(postId);
-                  }
-                }}
+                onClick={handleDeletePost}
                 className="action-pill-btn danger"
                 title="Delete story"
               >
