@@ -84,6 +84,6 @@ Interactive Swagger UI documentation is available at **`http://localhost:9001/ap
 
 ## 5. Testing
 
-Run the automated in-memory MongoDB test suite (135+ tests passing):
+Run the automated in-memory MongoDB test suite:
 ```bash
 cd backend && npm test
