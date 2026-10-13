@@ -2,40 +2,35 @@ import { useNavigate } from 'react-router-dom';
 import { StoryCard } from './StoryCard';
 import { calculateReadTime, formatDate } from '../utils/readingUtils';
 import { useAuth } from '../context/AuthContext';
-import { PenLine, Compass } from 'lucide-react';
+import { PenLine, Compass, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export const StoryFeed = ({
-  posts,
-  loading,
-  searchQuery,
+  posts = [],
+  loading = false,
+  searchQuery = '',
+  onClearSearch,
+  pagination = { total: 0, page: 1, pages: 1, limit: 10 },
+  onPageChange,
   onDeleteStory,
   onOpenAuth,
 }) => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Filter posts (by search query and draft status)
-  const filteredPosts = posts.filter((post) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = post.title?.toLowerCase().includes(q);
-      const matchContent = post.content?.toLowerCase().includes(q);
-      const matchAuthor = (post.author?.name || post.author?.username || '').toLowerCase().includes(q);
-      if (!matchTitle && !matchContent && !matchAuthor) return false;
-    }
+  // Only author or admin sees draft stories
+  const displayPosts = posts.filter(
+    (post) => post.status !== 'draft' || (user && post.author?._id === user._id)
+  );
 
-    // Only author or admin sees their own drafts
-    return post.status !== 'draft' || (user && post.author?._id === user._id);
-  });
-
-  // Featured Lead Story (the first published story)
-  const featuredPost = filteredPosts.length > 0 && !searchQuery
-    ? filteredPosts[0]
+  // Featured Lead Story only on page 1 with no search query
+  const isFirstPage = !pagination || pagination.page === 1;
+  const featuredPost = displayPosts.length > 0 && !searchQuery && isFirstPage
+    ? displayPosts[0]
     : null;
 
   const standardPosts = featuredPost
-    ? filteredPosts.slice(1)
-    : filteredPosts;
+    ? displayPosts.slice(1)
+    : displayPosts;
 
   const handleHeroClick = () => {
     if (!featuredPost) return;
@@ -52,21 +47,41 @@ export const StoryFeed = ({
     navigate('/write');
   };
 
+  const currentPage = pagination?.page || 1;
+  const totalPages = pagination?.pages || 1;
+  const totalItems = pagination?.total || displayPosts.length;
+  const currentLimit = pagination?.limit || 10;
+  const startItem = totalItems > 0 ? (currentPage - 1) * currentLimit + 1 : 0;
+  const endItem = Math.min(currentPage * currentLimit, totalItems);
+
   return (
     <div className="feed-container animate-fade-in">
       {/* Search Header if Active */}
       {searchQuery && (
         <div className="search-results-banner">
-          <p>
-            Showing results for <strong>"{searchQuery}"</strong> ({filteredPosts.length} {filteredPosts.length === 1 ? 'story' : 'stories'})
-          </p>
+          <div className="search-banner-text">
+            <span>Showing results for <strong>"{searchQuery}"</strong></span>
+            <span className="search-count-badge">
+              {totalItems} {totalItems === 1 ? 'story' : 'stories'} found
+            </span>
+          </div>
+          {onClearSearch && (
+            <button
+              onClick={onClearSearch}
+              className="clear-search-pill"
+              title="Clear search"
+            >
+              <X size={13} />
+              <span>Clear search</span>
+            </button>
+          )}
         </div>
       )}
 
       {/* Loading Skeleton */}
       {loading ? (
         <div className="loading-feed">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="story-card-skeleton">
               <div className="skeleton-line sm"></div>
               <div className="skeleton-line lg"></div>
@@ -74,7 +89,7 @@ export const StoryFeed = ({
             </div>
           ))}
         </div>
-      ) : filteredPosts.length === 0 ? (
+      ) : displayPosts.length === 0 ? (
         /* Empty State */
         <div className="empty-feed-card">
           <div className="empty-icon-halo">
@@ -87,24 +102,33 @@ export const StoryFeed = ({
           </h3>
           <p className="empty-desc">
             {searchQuery
-              ? 'Try searching with different keywords.'
+              ? 'Try searching with different keywords or title terms.'
               : 'Be the first voice on The Chronicle by sharing your perspective with the world.'}
           </p>
 
           <div className="empty-actions">
-            <button
-              onClick={handleWriteClick}
-              className="btn-primary"
-            >
-              <PenLine size={16} />
-              <span>Write a Story</span>
-            </button>
+            {searchQuery && onClearSearch ? (
+              <button
+                onClick={onClearSearch}
+                className="btn-secondary"
+              >
+                Clear Search & View All
+              </button>
+            ) : (
+              <button
+                onClick={handleWriteClick}
+                className="btn-primary"
+              >
+                <PenLine size={16} />
+                <span>Write a Story</span>
+              </button>
+            )}
           </div>
         </div>
       ) : (
-        /* Story Feed List */
+        /* Story Feed Stream */
         <div className="stories-stream">
-          {/* Featured Lead Hero (Medium style) */}
+          {/* Featured Lead Hero (Only on Page 1 & without search) */}
           {featuredPost && (
             <div
               className="featured-hero-card"
@@ -139,6 +163,72 @@ export const StoryFeed = ({
               />
             ))}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && onPageChange && (
+            <nav className="pagination-bar" aria-label="Stories pagination">
+              <div className="pagination-info">
+                Showing <span>{startItem}</span>–<span>{endItem}</span> of{' '}
+                <span>{totalItems}</span> stories
+              </div>
+
+              <div className="pagination-controls">
+                <button
+                  onClick={() => onPageChange(currentPage - 1)}
+                  disabled={currentPage <= 1 || loading}
+                  className="pagination-nav-btn"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft size={16} />
+                  <span>Previous</span>
+                </button>
+
+                <div className="pagination-pages">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                    // Show first, last, current, and surrounding pages
+                    const isVisible =
+                      p === 1 ||
+                      p === totalPages ||
+                      (p >= currentPage - 1 && p <= currentPage + 1);
+
+                    const isEllipsisBefore = p === currentPage - 2 && p > 1;
+                    const isEllipsisAfter = p === currentPage + 2 && p < totalPages;
+
+                    if (isVisible) {
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => onPageChange(p)}
+                          disabled={loading}
+                          className={`page-number-btn ${p === currentPage ? 'active' : ''}`}
+                          aria-current={p === currentPage ? 'page' : undefined}
+                        >
+                          {p}
+                        </button>
+                      );
+                    } else if (isEllipsisBefore || isEllipsisAfter) {
+                      return (
+                        <span key={`ell-${p}`} className="page-ellipsis">
+                          …
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => onPageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages || loading}
+                  className="pagination-nav-btn"
+                  aria-label="Next page"
+                >
+                  <span>Next</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </nav>
+          )}
         </div>
       )}
 
@@ -150,9 +240,51 @@ export const StoryFeed = ({
         }
 
         .search-results-banner {
-          margin-bottom: 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 2rem;
+          padding: 0.85rem 1.25rem;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-sm);
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .search-banner-text {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
           font-size: 0.95rem;
+          color: var(--text-main);
+        }
+
+        .search-count-badge {
+          font-size: 0.8rem;
           color: var(--text-muted);
+          background: var(--bg-subtle);
+          padding: 0.2rem 0.6rem;
+          border-radius: var(--radius-pill);
+        }
+
+        .clear-search-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.825rem;
+          color: var(--text-muted);
+          padding: 0.35rem 0.75rem;
+          border-radius: var(--radius-pill);
+          border: 1px solid var(--border-muted);
+          transition: all 0.15s ease;
+          background: transparent;
+        }
+
+        .clear-search-pill:hover {
+          color: var(--text-main);
+          border-color: var(--text-muted);
+          background: var(--bg-subtle);
         }
 
         /* Featured Hero Story */
@@ -220,6 +352,98 @@ export const StoryFeed = ({
         .stories-stream {
           max-width: var(--content-width);
           margin: 0 auto;
+        }
+
+        /* Pagination Bar */
+        .pagination-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 3.5rem;
+          padding-top: 1.75rem;
+          border-top: 1px solid var(--border-subtle);
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .pagination-info {
+          font-size: 0.875rem;
+          color: var(--text-muted);
+        }
+
+        .pagination-info span {
+          font-weight: 600;
+          color: var(--text-main);
+        }
+
+        .pagination-controls {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+
+        .pagination-nav-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.45rem 0.85rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: var(--text-main);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-subtle);
+          transition: all 0.15s ease;
+          cursor: pointer;
+        }
+
+        .pagination-nav-btn:hover:not(:disabled) {
+          border-color: var(--border-muted);
+          background: var(--bg-subtle);
+        }
+
+        .pagination-nav-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .pagination-pages {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          margin: 0 0.25rem;
+        }
+
+        .page-number-btn {
+          width: 34px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--radius-sm);
+          font-size: 0.875rem;
+          color: var(--text-muted);
+          background: transparent;
+          border: 1px solid transparent;
+          transition: all 0.15s ease;
+          cursor: pointer;
+        }
+
+        .page-number-btn:hover:not(:disabled) {
+          color: var(--text-main);
+          background: var(--bg-subtle);
+        }
+
+        .page-number-btn.active {
+          background: var(--accent-primary);
+          color: #fff;
+          font-weight: 600;
+        }
+
+        .page-ellipsis {
+          padding: 0 0.25rem;
+          color: var(--text-muted);
+          font-size: 0.85rem;
         }
 
         /* Empty Feed */

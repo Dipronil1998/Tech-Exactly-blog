@@ -28,8 +28,7 @@ export const StoryReader = ({ onOpenAuth }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [claps, setClaps] = useState(18);
-  const [hasClapped, setHasClapped] = useState(false);
+
   const [copiedLink, setCopiedLink] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
   const [commentError, setCommentError] = useState('');
@@ -62,14 +61,6 @@ export const StoryReader = ({ onOpenAuth }) => {
 
   const postId = post?._id || post?.id;
 
-  // Initialize claps
-  useEffect(() => {
-    if (postId) {
-      const saved = localStorage.getItem(`claps_${postId}`);
-      if (saved) setClaps(parseInt(saved, 10));
-    }
-  }, [postId]);
-
   // Load comments
   const fetchComments = useCallback(async () => {
     if (!postId) return;
@@ -91,16 +82,6 @@ export const StoryReader = ({ onOpenAuth }) => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [postId, fetchComments]);
-
-  // Handle claps
-  const handleClap = () => {
-    const nextClaps = claps + 1;
-    setClaps(nextClaps);
-    setHasClapped(true);
-    if (postId) {
-      localStorage.setItem(`claps_${postId}`, nextClaps);
-    }
-  };
 
   // Handle share
   const handleShare = () => {
@@ -360,18 +341,8 @@ export const StoryReader = ({ onOpenAuth }) => {
         {renderFormattedContent(post.content)}
       </article>
 
-      {/* Reader Engagement Bar (Medium Clap Bar) */}
       <div className="reader-engagement-bar">
         <div className="engagement-left">
-          <button
-            onClick={handleClap}
-            className={`clap-btn ${hasClapped ? 'clapped' : ''}`}
-            title="Applaud story"
-          >
-            <span className="clap-emoji">👏</span>
-            <span className="clap-count">{claps}</span>
-          </button>
-
           <a href="#comments" className="comments-jump-btn">
             <MessageSquare size={18} />
             <span>{comments.length}</span>
@@ -543,35 +514,7 @@ export const StoryReader = ({ onOpenAuth }) => {
           gap: 1.25rem;
         }
 
-        .clap-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.95rem;
-          color: var(--text-muted);
-          padding: 0.35rem 0.75rem;
-          border-radius: var(--radius-pill);
-          transition: all 0.15s ease;
-        }
 
-        .clap-btn:hover {
-          background: var(--bg-subtle);
-          color: var(--text-main);
-        }
-
-        .clap-btn.clapped {
-          color: var(--accent-primary);
-          font-weight: 600;
-        }
-
-        .clap-emoji {
-          font-size: 1.25rem;
-          transition: transform 0.1s ease;
-        }
-
-        .clap-btn:active .clap-emoji {
-          transform: scale(1.3) rotate(-10deg);
-        }
 
         .comments-jump-btn {
           display: inline-flex;

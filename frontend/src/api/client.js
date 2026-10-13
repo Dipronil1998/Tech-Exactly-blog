@@ -1,6 +1,5 @@
 /**
- * Frontend API Client with Bearer token authentication, credentials support,
- * automatic refresh token rotation & retry on token expiration (401).
+ * Frontend API Client with auto token refresh on 401
  */
 const API_BASE = '/api';
 
@@ -18,8 +17,7 @@ export const setStoredRefreshToken = (token) => {
 
 export const getStoredUser = () => {
   try {
-    const raw = localStorage.getItem('blog_user');
-    return raw ? JSON.parse(raw) : null;
+    return JSON.parse(localStorage.getItem('blog_user'));
   } catch {
     return null;
   }
@@ -36,68 +34,33 @@ export const clearStoredAuth = () => {
   setStoredUser(null);
 };
 
-// Single-flight refresh token mutex promise to avoid race conditions with token rotation
-let refreshPromise = null;
+// Refresh access token using refresh token
+export const refreshToken = async () => {
+  const token = getStoredRefreshToken();
 
-export function refreshAccessToken() {
-  if (refreshPromise) {
-    return refreshPromise;
-  }
-
-  refreshPromise = (async () => {
-    const storedRefreshToken = getStoredRefreshToken();
-
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(storedRefreshToken && { 'x-refresh-token': storedRefreshToken }),
-      },
-      body: JSON.stringify({
-        refreshToken: storedRefreshToken || undefined,
-      }),
-      credentials: 'include', // sends HTTP-only refresh cookie if present
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok || !data.success || !data.data?.accessToken) {
-      clearStoredAuth();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('blog:session_expired', {
-            detail: { message: data.message || 'Session expired. Please log in again.' },
-          })
-        );
-      }
-      const error = new Error(data.message || 'Failed to refresh access token.');
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
-
-    const { accessToken, refreshToken: newRefreshToken } = data.data;
-    setStoredToken(accessToken);
-    if (newRefreshToken) {
-      setStoredRefreshToken(newRefreshToken);
-    }
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('blog:token_refreshed', {
-          detail: { accessToken, refreshToken: newRefreshToken },
-        })
-      );
-    }
-
-    return accessToken;
-  })().finally(() => {
-    refreshPromise = null;
+  const response = await fetch(`${API_BASE}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: token }),
+    credentials: 'include',
   });
 
-  return refreshPromise;
-}
+  const data = await response.json().catch(() => ({}));
 
+  if (!response.ok || !data.data?.accessToken) {
+    clearStoredAuth();
+    throw new Error(data.message || 'Session expired');
+  }
+
+  setStoredToken(data.data.accessToken);
+  if (data.data.refreshToken) {
+    setStoredRefreshToken(data.data.refreshToken);
+  }
+
+  return data.data.accessToken;
+};
+
+// Generic API request with auto-retry on 401
 async function request(endpoint, options = {}) {
   const token = getStoredToken();
   const headers = {
@@ -109,29 +72,28 @@ async function request(endpoint, options = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
-    credentials: 'include', // enables cookies for refresh token
+    credentials: 'include',
   });
 
-  const data = await response.json().catch(() => ({}));
-
-  // If 401 Unauthorized occurs on an authenticated route and hasn't been retried yet,
-  // attempt to refresh the access token and replay the request.
-  const isAuthRoute =
-    endpoint.startsWith('/auth/login') ||
-    endpoint.startsWith('/auth/register') ||
-    endpoint.startsWith('/auth/refresh');
-
-  if (response.status === 401 && !options._isRetry && !isAuthRoute) {
-    const newToken = await refreshAccessToken();
-    return request(endpoint, {
-      ...options,
-      _isRetry: true,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${newToken}`,
-      },
-    });
+  // If 401 (access token expired), refresh token and retry the request once
+  if (response.status === 401 && !options._retry && !endpoint.includes('/auth/')) {
+    try {
+      const newToken = await refreshToken();
+      return request(endpoint, {
+        ...options,
+        _retry: true,
+        headers: {
+          ...options.headers,
+          Authorization: `Bearer ${newToken}`,
+        },
+      });
+    } catch (err) {
+      clearStoredAuth();
+      throw err;
+    }
   }
+
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
     const error = new Error(data.message || `Request failed with status ${response.status}`);
@@ -157,13 +119,7 @@ export const api = {
       body: JSON.stringify(userData),
     }),
 
-  refreshToken: (token) =>
-    token
-      ? request('/auth/refresh', {
-          method: 'POST',
-          body: JSON.stringify({ refreshToken: token }),
-        })
-      : refreshAccessToken(),
+  refreshToken,
 
   getMe: () => request('/auth/me'),
 
@@ -189,7 +145,19 @@ export const api = {
     }),
 
   // Post Management
-  getPosts: (params = '') => request(`/posts${params ? `?${params}` : ''}`),
+  getPosts: (params = '') => {
+    if (params && typeof params === 'object') {
+      const qs = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          qs.append(key, val);
+        }
+      });
+      const str = qs.toString();
+      return request(`/posts${str ? `?${str}` : ''}`);
+    }
+    return request(`/posts${params ? `?${params}` : ''}`);
+  },
   getPost: (idOrSlug) => request(`/posts/${idOrSlug}`),
   createPost: (postData) =>
     request('/posts', {

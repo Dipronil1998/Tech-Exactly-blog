@@ -53,10 +53,11 @@ const getAllPosts = async ({
   }
 
   // Keyword search in title or content
-  if (search) {
+  if (search && search.trim()) {
+    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query.$or = [
-      { title: { $regex: search, $options: 'i' } },
-      { content: { $regex: search, $options: 'i' } },
+      { title: { $regex: escaped, $options: 'i' } },
+      { content: { $regex: escaped, $options: 'i' } },
     ];
   }
 

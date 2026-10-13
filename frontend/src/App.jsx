@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
@@ -105,31 +105,58 @@ function PublishingPlatform() {
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pages: 1,
+    limit: 10,
+  });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
 
-  // Fetch all posts from API
-  const fetchPosts = async () => {
+  // Fetch posts from API with backend search & pagination
+  const fetchPosts = useCallback(async (targetPage = 1, query = searchQuery) => {
+    setLoadingPosts(true);
     try {
-      const res = await api.getPosts('limit=50');
+      const res = await api.getPosts({
+        page: targetPage,
+        limit: 10,
+        search: query ? query.trim() : undefined,
+      });
       if (res.success && res.data) {
         setPosts(res.data.posts || []);
+        if (res.data.pagination) {
+          setPagination(res.data.pagination);
+        }
       }
     } catch (err) {
       console.warn('Failed to load posts from API:', err.message);
     } finally {
       setLoadingPosts(false);
     }
-  };
+  }, [searchQuery]);
 
+  // Debounced search triggers backend query on page 1
   useEffect(() => {
-    fetchPosts();
-  }, []);
+    const timer = setTimeout(() => {
+      setPage(1);
+      fetchPosts(1, searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchPosts]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    fetchPosts(newPage, searchQuery);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleDeletePost = async (id) => {
     try {
       await api.deletePost(id);
-      await fetchPosts();
+      await fetchPosts(page, searchQuery);
     } catch (err) {
       alert(`Could not delete post: ${err.message}`);
     }
@@ -190,6 +217,9 @@ function PublishingPlatform() {
                   posts={posts}
                   loading={loadingPosts}
                   searchQuery={searchQuery}
+                  onClearSearch={() => setSearchQuery('')}
+                  pagination={pagination}
+                  onPageChange={handlePageChange}
                   onDeleteStory={handleDeletePost}
                   onOpenAuth={handleOpenAuth}
                 />
@@ -205,13 +235,13 @@ function PublishingPlatform() {
             {/* 3. New Story Editor */}
             <Route
               path="/write"
-              element={<StoryEditor onSaved={fetchPosts} />}
+              element={<StoryEditor onSaved={() => fetchPosts(page, searchQuery)} />}
             />
 
             {/* 4. Edit Story Route */}
             <Route
               path="/edit/:id"
-              element={<StoryEditor onSaved={fetchPosts} />}
+              element={<StoryEditor onSaved={() => fetchPosts(page, searchQuery)} />}
             />
 
             {/* 5. Admin Dashboard Route */}

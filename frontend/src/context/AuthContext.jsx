@@ -3,7 +3,6 @@ import {
   api,
   getStoredToken,
   setStoredToken,
-  getStoredRefreshToken,
   setStoredRefreshToken,
   getStoredUser,
   setStoredUser,
@@ -27,36 +26,11 @@ export const AuthProvider = ({ children }) => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Sync token state on refresh or session expiration events
-  useEffect(() => {
-    const handleSessionExpired = () => {
-      setUser(null);
-      setToken(null);
-    };
-
-    const handleTokenRefreshed = (e) => {
-      if (e.detail?.accessToken) {
-        setToken(e.detail.accessToken);
-      }
-    };
-
-    window.addEventListener('blog:session_expired', handleSessionExpired);
-    window.addEventListener('blog:token_refreshed', handleTokenRefreshed);
-
-    return () => {
-      window.removeEventListener('blog:session_expired', handleSessionExpired);
-      window.removeEventListener('blog:token_refreshed', handleTokenRefreshed);
-    };
-  }, []);
-
-  // Verify current session with /api/auth/me on mount (handles auto-refresh if token expired)
+  // Verify current session with /api/auth/me on mount
   useEffect(() => {
     const verifySession = async () => {
       const storedToken = getStoredToken();
-      const storedRefresh = getStoredRefreshToken();
-
-      // If no tokens exist at all, skip verification
-      if (!storedToken && !storedRefresh) {
+      if (!storedToken) {
         setLoading(false);
         return;
       }
@@ -69,7 +43,7 @@ export const AuthProvider = ({ children }) => {
           setToken(getStoredToken());
         }
       } catch (err) {
-        console.warn('Session verification failed, signing out', err.message);
+        console.warn('Session verification failed, signing out:', err.message);
         clearStoredAuth();
         setUser(null);
         setToken(null);

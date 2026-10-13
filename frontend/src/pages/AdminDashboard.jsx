@@ -19,7 +19,7 @@ import {
 export const AdminDashboard = ({ onBackToStories }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'users' | 'posts' | 'comments'
+  const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [usersList, setUsersList] = useState([]);
   const [postsList, setPostsList] = useState([]);
