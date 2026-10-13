@@ -1,10 +1,13 @@
 const rateLimit = require('express-rate-limit');
 
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
+
 // Rate limiter for authentication endpoints (registration, login, refresh)
 // Protects against credential stuffing and brute-force attacks
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 15, // Limit each IP to 15 auth requests per windowMs
+  max: isTest || isProduction ? 15 : 200, // Strict in production and tests, generous in development
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   statusCode: 429,

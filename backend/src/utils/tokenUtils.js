@@ -7,9 +7,9 @@ const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
 const getRefreshTokenCookieOptions = () => {
   const isProduction = process.env.NODE_ENV === 'production';
   return {
-    httpOnly: true,
-    secure: isProduction, // Send only over HTTPS in production
-    sameSite: isProduction ? 'strict' : 'lax',
+    httpOnly: true, // Prevents XSS attacks by disallowing client-side JavaScript access (document.cookie)
+    secure: isProduction, // Send only over HTTPS in production, false for local HTTP
+    sameSite: isProduction ? (process.env.COOKIE_SAME_SITE || 'strict') : 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
   };
@@ -48,15 +48,17 @@ const verifyRefreshToken = (token) => {
 };
 
 const setRefreshTokenCookie = (res, token) => {
+  if (!token) return;
   res.cookie(REFRESH_TOKEN_COOKIE_NAME, token, getRefreshTokenCookieOptions());
 };
 
 const clearRefreshTokenCookie = (res) => {
+  const { httpOnly, secure, sameSite, path } = getRefreshTokenCookieOptions();
   res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    path: '/',
+    httpOnly,
+    secure,
+    sameSite,
+    path,
   });
 };
 

@@ -128,6 +128,11 @@ export const StoryEditor = ({ initialPost, onCancel, onSaved }) => {
 
       if (onSaved) {
         onSaved(savedPost);
+      }
+
+      // When post is created, redirect to home page
+      if (!isEditing) {
+        navigate('/');
       } else if (savedPost) {
         navigate(`/posts/${savedPost.slug || savedPost._id || savedPost.id}`, {
           state: { post: savedPost },

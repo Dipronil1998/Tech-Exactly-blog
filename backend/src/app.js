@@ -26,6 +26,7 @@ const swaggerUiOptions = {
   swaggerOptions: {
     persistAuthorization: true,
     displayRequestDuration: true,
+    withCredentials: true,
   },
 };
 
@@ -37,14 +38,37 @@ app.get('/api/docs.json', (req, res) => {
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
 
-// CORS configuration for frontend credentials / cookies
+// CORS configuration supporting credentials/cookies across local development ports
 const clientOrigin = process.env.CLIENT_URL || 'http://localhost:3000';
+const allowedOrigins = [
+  clientOrigin,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:9001',
+  'http://127.0.0.1:9001',
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: clientOrigin,
+    origin: (origin, callback) => {
+      // allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token'],
+    exposedHeaders: ['Set-Cookie'],
   })
 );
 

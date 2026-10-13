@@ -235,7 +235,15 @@ function PublishingPlatform() {
             {/* 3. New Story Editor */}
             <Route
               path="/write"
-              element={<StoryEditor onSaved={() => fetchPosts(page, searchQuery)} />}
+              element={
+                <StoryEditor
+                  onSaved={() => {
+                    setSearchQuery('');
+                    setPage(1);
+                    fetchPosts(1, '');
+                  }}
+                />
+              }
             />
 
             {/* 4. Edit Story Route */}

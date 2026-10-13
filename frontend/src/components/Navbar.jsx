@@ -62,7 +62,6 @@ export const Navbar = ({
             <span className="brand-title">Blogger</span>
           </Link>
           <span className="brand-divider">/</span>
-          <span className="brand-tagline">Stories & Perspectives</span>
         </div>
 
         {/* Search Bar (Medium style) */}

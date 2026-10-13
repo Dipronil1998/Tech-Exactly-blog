@@ -88,6 +88,9 @@ const refreshToken = async (req, res, next) => {
       req.body?.refreshToken ||
       req.headers['x-refresh-token'];
 
+    console.log(token, "LLLLLLlL");
+
+
     if (!token) {
       return res.status(401).json({
         success: false,
